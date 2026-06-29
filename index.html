@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cabin Ledger</title>
+<style>
+:root{
+  --paper:#f7f4ee;
+  --ink:#1f2a23;
+  --ink-soft:#52605a;
+  --line:#d8d2c4;
+  --pine:#2d4a3e;
+  --pine-deep:#1c2f27;
+  --rust:#a8552f;
+  --rust-soft:#c97a4f;
+  --gold:#b08d2f;
+  --surplus:#3f6b4e;
+  --shortfall:#a8552f;
+  --card:#fffdf8;
+  --shadow:0 1px 2px rgba(31,42,35,0.06);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
+
+/* ---------- header ---------- */
+.masthead{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  border-bottom:3px solid var(--ink);
+  padding-bottom:14px;margin-bottom:6px;
+  flex-wrap:wrap;gap:10px;
+}
+.masthead .title-block{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+.masthead h1{
+  font-family:'Iowan Old Style',Georgia,serif;
+  font-weight:400;font-size:30px;letter-spacing:0.01em;margin:0;color:var(--pine-deep);
+}
+.masthead .sub{
+  font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--ink-soft);
+}
+.year-tabs{display:flex;gap:6px;align-items:center;}
+.year-tab{
+  font-family:'Courier New',monospace;font-size:13px;letter-spacing:0.05em;
+  padding:6px 14px;border:1px solid var(--ink);background:transparent;color:var(--ink);
+  cursor:pointer;border-radius:0;
+}
+.year-tab.active{background:var(--pine-deep);color:var(--paper);border-color:var(--pine-deep);}
+.year-tab:hover:not(.active){background:var(--line);}
+.add-year{
+  font-family:'Courier New',monospace;font-size:13px;width:30px;height:30px;
+  border:1px dashed var(--ink-soft);background:transparent;color:var(--ink-soft);cursor:pointer;
+}
+.add-year:hover{border-color:var(--ink);color:var(--ink);}
+
+.ribbon{
+  display:flex;gap:18px;font-family:'Courier New',monospace;font-size:11px;
+  color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.08em;
+  padding:8px 0 22px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:22px;
+}
+.ribbon b{color:var(--ink);font-weight:700;}
+
+.data-toolbar{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  font-family:'Courier New',monospace;font-size:10.5px;letter-spacing:0.03em;
+  color:var(--ink-soft);padding:8px 0 18px;
+}
+.data-toolbar-label{text-transform:none;letter-spacing:0;}
+
+/* ---------- nav ---------- */
+.tabs{display:flex;gap:2px;margin-bottom:22px;flex-wrap:wrap;}
+.tab{
+  font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;
+  padding:9px 16px;background:transparent;border:1px solid var(--line);color:var(--ink-soft);
+  cursor:pointer;
+}
+.tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.tab:hover:not(.active){border-color:var(--ink-soft);color:var(--ink);}
+
+/* ---------- cards / sections ---------- */
+.card{
+  background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
+  padding:22px 24px;margin-bottom:20px;
+}
+.card h2{
+  font-size:15px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;
+  color:var(--pine-deep);margin:0 0 16px;display:flex;justify-content:space-between;align-items:center;
+}
+.card h2 .hint{font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.04em;
+  text-transform:none;color:var(--ink-soft);font-weight:400;}
+
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:8px;}
+.stat{
+  border-left:3px solid var(--pine);padding:4px 0 4px 14px;
+}
+.stat.warn{border-left-color:var(--rust);}
+.stat.good{border-left-color:var(--surplus);}
+.stat .num{font-size:24px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+.stat .lbl{font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.06em;
+  text-transform:uppercase;color:var(--ink-soft);margin-top:2px;}
+.stat .sub{font-size:11px;color:var(--ink-soft);margin-top:1px;}
+
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{
+  text-align:left;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.06em;
+  text-transform:uppercase;color:var(--ink-soft);font-weight:600;
+  padding:8px 10px;border-bottom:1px solid var(--ink);white-space:nowrap;
+}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+.num-cell{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.tr-total td{font-weight:700;border-top:1.5px solid var(--ink);border-bottom:none;background:#f1eee3;}
+.tr-month{background:transparent;cursor:pointer;border-bottom:1px solid var(--line);}
+.tr-month:hover{background:#f1eee3;}
+.tr-month td{font-weight:400;color:var(--ink);padding-top:13px;padding-bottom:13px;}
+.tr-month td:first-child{font-weight:600;color:var(--pine-deep);}
+.tr-month .chev{display:inline-block;width:14px;font-family:'Courier New',monospace;color:var(--ink-soft);font-weight:400;}
+.expand-controls{font-family:'Courier New',monospace;font-size:10.5px;letter-spacing:0.04em;text-transform:uppercase;color:var(--ink-soft);}
+.link-btn{background:none;border:none;padding:0;font:inherit;color:var(--ink-soft);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:2px;}
+.link-btn:hover{color:var(--pine-deep);text-decoration-color:var(--pine-deep);}
+.expand-controls .sep{margin:0 6px;color:var(--line);}
+.muted{color:var(--ink-soft);}
+.pos{color:var(--surplus);font-weight:600;}
+.neg{color:var(--shortfall);font-weight:600;}
+.tag{
+  font-family:'Courier New',monospace;font-size:9px;letter-spacing:0.04em;text-transform:uppercase;
+  padding:2px 6px;border:1px solid var(--line);border-radius:2px;color:var(--ink-soft);
+}
+.tag.direct{border-color:var(--pine);color:var(--pine);}
+.tag.vrbo{border-color:var(--gold);color:var(--gold);}
+.tag.airbnb-couples{border-color:var(--rust-soft);color:var(--rust-soft);}
+.tag.airbnb-whole{border-color:var(--rust);color:var(--rust);}
+
+/* ---------- inputs ---------- */
+input[type=text],input[type=number],select{
+  font-family:inherit;font-size:13px;color:var(--ink);
+  border:1px solid var(--line);background:#fff;padding:5px 7px;width:100%;
+}
+input[type=number]{font-variant-numeric:tabular-nums;}
+input:focus,select:focus{outline:none;border-color:var(--pine);}
+.row-actions{display:flex;gap:6px;justify-content:flex-end;}
+.btn{
+  font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.04em;text-transform:uppercase;
+  padding:6px 12px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;
+}
+.btn:hover{background:var(--ink);color:var(--paper);}
+.btn.primary{background:var(--pine-deep);color:var(--paper);border-color:var(--pine-deep);}
+.btn.primary:hover{background:var(--pine);}
+.btn.danger{border-color:var(--rust);color:var(--rust);}
+.btn.danger:hover{background:var(--rust);color:#fff;}
+.btn.ghost{border-color:transparent;color:var(--ink-soft);}
+.btn.ghost:hover{background:var(--line);color:var(--ink);}
+.btn.small{padding:3px 9px;font-size:10px;}
+.icon-btn{
+  width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:14px;
+  line-height:1;
+}
+.icon-btn:hover{border-color:var(--rust);color:var(--rust);}
+
+.month-detail{background:#fbf9f3;border-bottom:1px solid var(--line);}
+.month-detail-inner{padding:18px 24px 22px 40px;display:grid;grid-template-columns:1.3fr 1fr;gap:24px;}
+@media(max-width:880px){.month-detail-inner{grid-template-columns:1fr;}}
+.subhead{font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.07em;text-transform:uppercase;
+  color:var(--ink-soft);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;}
+.mini-table td,.mini-table th{padding:5px 8px;font-size:12px;}
+.add-line{display:flex;gap:6px;margin-top:8px;align-items:center;}
+.add-line input,.add-line select{flex:1;}
+.empty-note{font-size:12px;color:var(--ink-soft);font-style:italic;padding:8px 0;}
+.calc-strip{
+  font-family:'Courier New',monospace;font-size:11px;color:var(--ink-soft);
+  background:#f1eee3;padding:10px 12px;margin-top:10px;line-height:1.7;border-left:2px solid var(--line);
+}
+.calc-strip .eq{color:var(--ink);}
+.flag{
+  font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.04em;text-transform:uppercase;
+  color:var(--ink-soft);display:inline-flex;align-items:center;gap:5px;
+}
+.flag .dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex:none;}
+.flag.paid .dot{background:var(--surplus);}
+.flag.upcoming .dot{background:var(--rust-soft);}
+.flag.current .dot{background:var(--ink-soft);}
+.flag.surplus .dot{background:var(--surplus);}
+
+/* breakeven gauge */
+.gauge-track{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin:10px 0 4px;}
+.gauge-fill{height:100%;background:var(--pine);transition:width .3s;}
+.gauge-fill.over{background:var(--rust);}
+
+footer{
+  font-family:'Courier New',monospace;font-size:10px;color:var(--ink-soft);
+  text-align:center;padding-top:24px;letter-spacing:0.05em;
+}
+.toast{
+  position:fixed;bottom:18px;right:18px;background:var(--ink);color:var(--paper);
+  padding:9px 16px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.04em;
+  opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;z-index:50;
+}
+.toast.show{opacity:1;transform:translateY(0);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:880px){.two-col{grid-template-columns:1fr;}}
+.field-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.field-row label{flex:0 0 150px;font-size:12px;color:var(--ink-soft);}
+.note-box{font-size:11.5px;color:var(--ink-soft);background:#f1eee3;padding:10px 12px;margin-top:10px;border-left:2px solid var(--gold);}
+.loading{padding:60px;text-align:center;color:var(--ink-soft);font-family:'Courier New',monospace;font-size:12px;}
+select.src{font-family:'Courier New',monospace;font-size:10px;text-transform:uppercase;}
+</style>
+</head>
+<body>
+<div id="root"><div class="loading">loading ledger…</div></div>
+
+<script type="text/babel" data-presets="react">
+const {useState,useEffect,useMemo,useRef,useCallback} = React;
+
+const MONTH_NAMES=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const fmt=(n)=>{
+  const v = (n===undefined||n===null||isNaN(n))?0:n;
+  const sign = v<0 ? "-" : "";
+  return sign+"$"+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+};
+const fmtShort=(n)=>{
+  const v=(n===undefined||n===null||isNaN(n))?0:n;
+  const sign=v<0?"-":"";
+  return sign+"$"+Math.abs(v).toLocaleString("en-US",{maximumFractionDigits:0});
+};
+const uid=()=>Math.random().toString(36).slice(2,10);
+
+function defaultExpenseItems(){
+  return [
+    {id:uid(),name:"Internet",amount:35},
+    {id:uid(),name:"Insurance",amount:96.46},
+    {id:uid(),name:"Property Tax (+ prep fee)",amount:313.25},
+    {id:uid(),name:"Power",amount:150},
+    {id:uid(),name:"Water",amount:25},
+    {id:uid(),name:"Mortgage",amount:2465},
+    {id:uid(),name:"Cleaning Fee (est. 4x/mo)",amount:460},
+    {id:uid(),name:"Misc Costs",amount:100},
+    {id:uid(),name:"Quickbooks",amount:70},
+    {id:uid(),name:"Propane (annual/12)",amount:91.67},
+  ];
+}
+
+function defaultYear(year, startingBalance){
+  return {
+    year,
+    ownerSplit:{ladd:60, dane:40},
+    expenseItems: defaultExpenseItems(),
+    months: MONTH_NAMES.map((name,i)=>({
+      id:uid(),
+      name,
+      manualStartingBalance: i===0 ? (startingBalance ?? 0) : null,
+      manualAccountBalanceNote:"",
+      bookings:[],
+      expenseAdjustments:[],
+      ranger:[],
+      contributionStatus: "Upcoming",
+    }))
+  };
+}
+
+function bk(guest,amount,source){ return {id:uid(), guest, amount, source: source||"Direct"}; }
+function adj(label,amount){ return {id:uid(), label, amount}; }
+function rg(label,amount){ return {id:uid(), label, amount}; }
+
+function seed2026(){
+  const y = defaultYear(2026, 3332.14);
+  const m = y.months;
+  m[0].bookings = [bk("Leeann",970.97),bk("Aaron",1088.82),bk("Lexxi",985.52)];
+  m[0].expenseAdjustments = [adj("Power double-counted / credit adj.",170)];
+  m[0].ranger = [rg("Winter rental",200),rg("Winter rental",300)];
+  m[0].contributionStatus="Paid";
+  m[1].manualStartingBalance = 3291.79;
+  m[1].bookings = [bk("Eric",984.55),bk("Sam",824.5),bk("Luke",487.42),bk("Christine",740.61)];
+  m[1].expenseAdjustments = [adj("Power double-counted / credit adj.",170)];
+  m[1].ranger = [rg("Winter rental",150),rg("Winter rental",100),rg("Winter rental",200)];
+  m[1].contributionStatus="Paid";
+  m[2].manualStartingBalance = 1506.6;
+  m[2].bookings = [bk("John",1183.4),bk("Miles",469.48),bk("Megan",483.54),bk("David",757.81)];
+  m[2].expenseAdjustments = [adj("One-time expense reduction (see notes)",-2761.94)];
+  m[2].ranger = [rg("Winter rental",150),rg("Winter rental",75),rg("Winter rental",50)];
+  m[2].contributionStatus="Paid";
+  m[3].manualStartingBalance = 3968.44;
+  m[3].bookings = [bk("Scott",651.75),bk("Emily",1149.45),bk("Devin",750),bk("Rafael",625.65),bk("Cassity",870.57)];
+  m[3].manualContribution = 0;
+  m[3].contributionStatus="Paid";
+  m[4].manualStartingBalance = 4839.01;
+  m[4].bookings = [bk("Allison",932),bk("Christopher",700.63),bk("Andrew",1600.5)];
+  m[4].manualContribution = 0;
+  m[4].contributionStatus="Paid";
+  m[5].manualStartingBalance = 1896.26;
+  m[5].bookings = [bk("Kiely",1314.35),bk("Amanda",780.85),bk("Nikole",686.68),bk("Corbin",859.66),bk("Rainer",692.34)];
+  m[5].manualContribution = 0;
+  m[5].contributionStatus="Paid";
+  m[6].manualStartingBalance = 5136.81;
+  m[6].bookings = [bk("Meladie",1762),bk("Paul",1445.3),bk("Kyle",782.79),bk("Heather",1526.78)];
+  m[6].contributionStatus="Upcoming";
+  m[7].bookings = [bk("Austin",1247.63),bk("Chloy",1294.95),bk("Larry",1110.65)];
+  m[7].contributionStatus="Upcoming";
+  m[8].bookings = [bk("Niki",1177.34),bk("Marsha",965.15),bk("Tara",803.99)];
+  m[8].contributionStatus="Upcoming";
+  m[9].bookings = [bk("Josie",863.3)];
+  m[9].contributionStatus="Upcoming";
+  m[10].bookings = [bk("James",1526.25)];
+  m[10].contributionStatus="Upcoming";
+  m[11].bookings = [bk("Keaton",2400),bk("Mike",1790.65)];
+  m[11].contributionStatus="Upcoming";
+  return y;
+}
+
+function seed2025(){
+  const y = defaultYear(2025, 0);
+  y.expenseItems = [
+    {id:uid(),name:"Internet",amount:35},
+    {id:uid(),name:"Insurance",amount:96.46},
+    {id:uid(),name:"Property Tax (+ prep fee)",amount:313.25},
+    {id:uid(),name:"Power",amount:150},
+    {id:uid(),name:"Water",amount:25},
+    {id:uid(),name:"Mortgage",amount:2786.94},
+    {id:uid(),name:"Cleaning Fee (est. 4x/mo)",amount:460},
+    {id:uid(),name:"Misc Costs",amount:100},
+    {id:uid(),name:"Quickbooks",amount:70},
+    {id:uid(),name:"Propane (annual/12)",amount:91.67},
+  ];
+  const m = y.months;
+  m[0].notTracked = true;
+  m[1].notTracked = true;
+  m[2].notTracked = true;
+  m[3].notTracked = true;
+  m[4].manualStartingBalance = 2338.75;
+  m[4].bookings = [bk("Tina",611.10),bk("Charity",514.10),bk("Audra",856.03),bk("Selu",552.90),bk("Melton",582.12)];
+  m[4].contributionStatus="Paid";
+  m[5].bookings = [bk("Nalani",894.30),bk("Summer",453.87),bk("Marinda",618.79),bk("Lauren",577.15),bk("Logan",809.00)];
+  m[5].contributionStatus="Paid";
+  m[6].bookings = [bk("Staci",1064.58),bk("Judy",1190.68),bk("Kelcie",710.47),bk("Pamela",1159.15),bk("Michael",1227.05)];
+  m[6].contributionStatus="Paid";
+  m[7].bookings = [bk("Rhodalyn",1388.84),bk("Joshua",2230.37),bk("Casandra",824.50),bk("Tamara",756.30)];
+  m[7].contributionStatus="Paid";
+  m[8].bookings = [bk("Juan",582.00),bk("Salina",979.74),bk("Stephanie",873.00)];
+  m[8].expenseAdjustments = [adj("Landscaping (Colin)",174.30)];
+  m[8].contributionStatus="Paid";
+  m[9].bookings = [bk("Philip",1675.68),bk("Scott",792.78),bk("Dale",657.37)];
+  m[9].expenseAdjustments = [adj("Misc one-time adjustments (taxes, propane credit, etc.)", -4016.3825)];
+  m[9].contributionStatus="Paid";
+  m[10].bookings = [bk("Karin",1031.00),bk("Daniel*",63.00)];
+  m[10].ranger = [rg("Winter rental",275)];
+  m[10].expenseAdjustments = [adj("Power/propane/cleaning credit, minus property tax",-810.17)];
+  m[10].contributionStatus="Paid";
+  m[11].bookings = [bk("Jair",415.16),bk("Keara",510.03),bk("Courtney",1382.25),bk("Heather",394.79),bk("Keyahna",546.35)];
+  m[11].ranger = [rg("Winter rental",275),rg("Winter rental",100),rg("Winter rental",100),rg("Winter rental",75)];
+  m[11].expenseAdjustments = [adj("Late fee / adjustment",140)];
+  m[11].contributionStatus="Paid";
+  return y;
+}
+
+function App(){
+  const [loaded,setLoaded]=useState(false);
+  const [years,setYears]=useState({});
+  const [activeYear,setActiveYear]=useState(null);
+  const [tab,setTab]=useState("ledger");
+  const [openMonths,setOpenMonths]=useState(new Set());
+  const [toast,setToast]=useState("");
+  const saveTimer=useRef(null);
+
+  const showToast=(msg)=>{
+    setToast(msg);
+    clearTimeout(saveTimer.current);
+    saveTimer.current=setTimeout(()=>setToast(""),1800);
+  };
+
+  // ---- load ----
+  useEffect(()=>{
+    try{
+      const raw = localStorage.getItem('cabin-ledger-data');
+      if(raw){
+        const data = JSON.parse(raw);
+        setYears(data.years || {});
+        setActiveYear(data.activeYear || Object.keys(data.years||{})[0] || null);
+      } else {
+        setYears({2025: seed2025(), 2026: seed2026()});
+        setActiveYear(2026);
+      }
+    }catch(e){
+      setYears({2025: seed2025(), 2026: seed2026()});
+      setActiveYear(2026);
+    }
+    setLoaded(true);
+  },[]);
+
+  // ---- save (debounced) ----
+  useEffect(()=>{
+    if(!loaded) return;
+    const t = setTimeout(()=>{
+      try{
+        localStorage.setItem('cabin-ledger-data', JSON.stringify({years, activeYear}));
+      }catch(e){ console.error("save failed", e); }
+    }, 500);
+    return ()=>clearTimeout(t);
+  },[years, activeYear, loaded]);
+
+  const updateYear=(yearKey, fn)=>{
+    setYears(prev=>{
+      const copy = JSON.parse(JSON.stringify(prev));
+      fn(copy[yearKey]);
+      return copy;
+    });
+  };
+
+  const fileInputRef = useRef(null);
+
+  const exportData=()=>{
+    const payload = {years, activeYear, exportedAt: new Date().toISOString(), app:"cabin-ledger"};
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const datePart = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `cabin-ledger-backup-${datePart}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Backup file downloaded");
+  };
+
+  const triggerImport=()=>{
+    if(fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleImportFile=(e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const data = JSON.parse(ev.target.result);
+        if(!data.years) throw new Error("not a cabin ledger backup");
+        setYears(data.years);
+        setActiveYear(data.activeYear || Object.keys(data.years)[0]);
+        showToast("Backup loaded");
+      }catch(err){
+        showToast("Couldn't read that file");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const yearKeys = useMemo(()=>Object.keys(years).map(Number).sort((a,b)=>a-b),[years]);
+  const yr = activeYear!=null ? years[activeYear] : null;
+
+  const addYear=()=>{
+    const newYear = yearKeys.length ? Math.max(...yearKeys)+1 : new Date().getFullYear();
+    if(years[newYear]) return;
+    // carry forward expense items from latest year if present
+    const latest = yearKeys.length ? years[yearKeys[yearKeys.length-1]] : null;
+    setYears(prev=>{
+      const copy = {...prev};
+      const fresh = defaultYear(newYear, 0);
+      if(latest) fresh.expenseItems = JSON.parse(JSON.stringify(latest.expenseItems));
+      if(latest) fresh.ownerSplit = {...latest.ownerSplit};
+      copy[newYear]=fresh;
+      return copy;
+    });
+    setActiveYear(newYear);
+    showToast(`${newYear} ledger created`);
+  };
+
+  if(!loaded || !yr){
+    return <div className="loading">loading ledger…</div>;
+  }
+
+  return (
+    <div className="wrap">
+      <Header
+        yearKeys={yearKeys}
+        activeYear={activeYear}
+        setActiveYear={setActiveYear}
+        addYear={addYear}
+        yr={yr}
+        onExport={exportData}
+        onImport={triggerImport}
+      />
+      <input type="file" accept="application/json" ref={fileInputRef} style={{display:"none"}} onChange={handleImportFile} />
+      <Tabs tab={tab} setTab={setTab} />
+      {tab==="ledger" && (
+        <LedgerView
+          yr={yr}
+          updateYear={(fn)=>updateYear(activeYear, fn)}
+          openMonths={openMonths}
+          setOpenMonths={setOpenMonths}
+          showToast={showToast}
+        />
+      )}
+      {tab==="expenses" && (
+        <ExpensesView yr={yr} updateYear={(fn)=>updateYear(activeYear, fn)} showToast={showToast} />
+      )}
+      {tab==="contributions" && (
+        <ContributionsView yr={yr} updateYear={(fn)=>updateYear(activeYear, fn)} />
+      )}
+      {tab==="analytics" && (
+        <AnalyticsView years={years} yr={yr} yearKeys={yearKeys} />
+      )}
+      {tab==="ranger" && (
+        <RangerView yr={yr} updateYear={(fn)=>updateYear(activeYear, fn)} />
+      )}
+      <footer>cabin ledger · data auto-saves in this browser · use Download/Load backup to move between computers</footer>
+      <div className={"toast"+(toast?" show":"")}>{toast}</div>
+    </div>
+  );
+}
+
+function Header({yearKeys, activeYear, setActiveYear, addYear, yr, onExport, onImport}){
+  return (
+    <div>
+      <div className="masthead">
+        <div className="title-block">
+          <h1>Cabin Ledger</h1>
+          <span className="sub">Ladd {yr.ownerSplit.ladd}% · Dane {yr.ownerSplit.dane}%</span>
+        </div>
+        <div className="year-tabs">
+          {yearKeys.map(y=>(
+            <button key={y} className={"year-tab"+(y===activeYear?" active":"")} onClick={()=>setActiveYear(y)}>{y}</button>
+          ))}
+          <button className="add-year" title="Add year" onClick={addYear}>+</button>
+        </div>
+      </div>
+      <div className="data-toolbar">
+        <span className="data-toolbar-label">Data lives in this conversation only —</span>
+        <button className="link-btn" onClick={onExport}>Download backup</button>
+        <span className="sep">·</span>
+        <button className="link-btn" onClick={onImport}>Load backup</button>
+      </div>
+    </div>
+  );
+}
+
+function Tabs({tab,setTab}){
+  const items=[
+    ["ledger","Monthly Ledger"],
+    ["expenses","Expense Baseline"],
+    ["contributions","Owner Contributions"],
+    ["analytics","Analytics"],
+    ["ranger","Ranger Income"],
+  ];
+  return (
+    <div className="tabs">
+      {items.map(([k,label])=>(
+        <button key={k} className={"tab"+(tab===k?" active":"")} onClick={()=>setTab(k)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+// ---------------- CALC ENGINE ----------------
+// Replicates: K = -(baseline + sum(adjustments))
+//             L = manualStartingBalance if set on month 0, else prevMonth.J + prevMonth.K + prevMonth.N
+//             M = -K - L   (shortfall owners must contribute; negative = surplus)
+//             N = L + M
+function computeMonths(yr){
+  const baseline = yr.expenseItems.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const out=[];
+  let prevJ=null, prevK=null, prevN=null;
+  yr.months.forEach((m,i)=>{
+    if(m.notTracked){
+      out.push({...m, totalIncome:0, baseline, adjTotal:0, totalExpense:0, K:0, L:null, M:0, N:null,
+        rangerTotal:0, calculatedM:0, hasContributionOverride:false});
+      prevJ=null; prevK=null; prevN=null;
+      return;
+    }
+    const totalIncome = m.bookings.reduce((s,b)=>s+(Number(b.amount)||0),0);
+    const adjTotal = m.expenseAdjustments.reduce((s,a)=>s+(Number(a.amount)||0),0);
+    const totalExpense = baseline + adjTotal; // positive number
+    const K = -totalExpense;
+    let L;
+    if(m.manualStartingBalance!==null && m.manualStartingBalance!==undefined){
+      L = Number(m.manualStartingBalance)||0;
+    } else if(prevJ!==null){
+      L = prevJ + prevK + prevN;
+    } else {
+      L = 0;
+    }
+    const calculatedM = -K - L; // contribution needed (negative = surplus)
+    const hasOverride = m.manualContribution!==null && m.manualContribution!==undefined;
+    const M = hasOverride ? Number(m.manualContribution)||0 : calculatedM;
+    const N = L + M;
+    const rangerTotal = (m.ranger||[]).reduce((s,r)=>s+(Number(r.amount)||0),0);
+    out.push({
+      ...m, totalIncome, baseline, adjTotal, totalExpense, K, L, M, N, rangerTotal,
+      calculatedM, hasContributionOverride: hasOverride
+    });
+    prevJ=totalIncome; prevK=K; prevN=N;
+  });
+  return out;
+}
+
+function sourceTag(src){
+  const s=(src||"Direct").toLowerCase();
+  let cls="direct";
+  if(s==="vrbo") cls="vrbo";
+  else if(s==="couples airbnb") cls="airbnb-couples";
+  else if(s==="whole house airbnb") cls="airbnb-whole";
+  return <span className={"tag "+cls}>{src||"Direct"}</span>;
+}
+
+// ---------------- LEDGER VIEW ----------------
+function LedgerView({yr, updateYear, openMonths, setOpenMonths, showToast}){
+  const computed = useMemo(()=>computeMonths(yr),[yr]);
+
+  const totalIncomeYTD = computed.reduce((s,m)=>s+m.totalIncome,0);
+  const totalExpenseYTD = computed.reduce((s,m)=>s+m.totalExpense,0);
+  const totalContribYTD = computed.reduce((s,m)=>s+Math.max(0,m.M),0);
+  const totalSurplusYTD = computed.reduce((s,m)=>s+Math.max(0,-m.M),0);
+  const lastMonth = computed[computed.length-1];
+
+  const addBooking=(monthIdx)=>{
+    updateYear(y=>{
+      y.months[monthIdx].bookings.push({id:uid(), guest:"", amount:0, source:"Direct"});
+    });
+  };
+  const updateBooking=(monthIdx, bId, field, val)=>{
+    updateYear(y=>{
+      const b = y.months[monthIdx].bookings.find(x=>x.id===bId);
+      if(b){
+        if(field==="amount") b.amount = (val===""?"":Number(val));
+        else if(field==="source"){ b.source = val; b.sourceTagged = true; }
+        else b[field] = val;
+      }
+    });
+  };
+  const removeBooking=(monthIdx,bId)=>{
+    updateYear(y=>{ y.months[monthIdx].bookings = y.months[monthIdx].bookings.filter(b=>b.id!==bId); });
+  };
+  const addAdj=(monthIdx)=>{
+    updateYear(y=>{ y.months[monthIdx].expenseAdjustments.push({id:uid(), label:"", amount:0}); });
+  };
+  const updateAdj=(monthIdx, aId, field, val)=>{
+    updateYear(y=>{
+      const a = y.months[monthIdx].expenseAdjustments.find(x=>x.id===aId);
+      if(a) a[field] = field==="amount" ? (val===""?"":Number(val)) : val;
+    });
+  };
+  const removeAdj=(monthIdx,aId)=>{
+    updateYear(y=>{ y.months[monthIdx].expenseAdjustments = y.months[monthIdx].expenseAdjustments.filter(a=>a.id!==aId); });
+  };
+  const setManualStart=(monthIdx,val)=>{
+    updateYear(y=>{ y.months[monthIdx].manualStartingBalance = val===""? null : Number(val); });
+  };
+  const clearManualStart=(monthIdx)=>{
+    updateYear(y=>{ y.months[monthIdx].manualStartingBalance = null; });
+  };
+  const setManualContribution=(monthIdx,val)=>{
+    updateYear(y=>{ y.months[monthIdx].manualContribution = val===""? null : Number(val); });
+  };
+  const clearManualContribution=(monthIdx)=>{
+    updateYear(y=>{ y.months[monthIdx].manualContribution = null; });
+  };
+  const setStatus=(monthIdx, status)=>{
+    updateYear(y=>{ y.months[monthIdx].contributionStatus = status; });
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <h2>Year at a Glance <span className="hint">{yr.year}</span></h2>
+        <div className="stat-row">
+          <div className="stat"><div className="num">{fmtShort(totalIncomeYTD)}</div><div className="lbl">Total Projected Income</div></div>
+          <div className="stat warn"><div className="num">{fmtShort(totalExpenseYTD)}</div><div className="lbl">Total Expenses</div></div>
+          <div className={"stat"+(totalContribYTD>0?" warn":"")}><div className="num">{fmtShort(totalContribYTD)}</div><div className="lbl">Owner Contributions Needed</div></div>
+          <div className="stat good"><div className="num">{fmtShort(totalSurplusYTD)}</div><div className="lbl">Surplus Months (offset)</div></div>
+          <div className="stat"><div className="num">{lastMonth?fmtShort(lastMonth.N):"$0"}</div><div className="lbl">Balance, end of {lastMonth?.name}</div></div>
+        </div>
+      </div>
+
+      <div className="card" style={{padding:0}}>
+        <div style={{padding:"22px 24px 4px",display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8}}>
+          <h2 style={{margin:0}}>Monthly Rolling Balance</h2>
+          <div className="expand-controls">
+            <button className="link-btn" onClick={()=>setOpenMonths(new Set(computed.filter(m=>!m.notTracked).map(m=>m.id)))}>Expand all</button>
+            <span className="sep">·</span>
+            <button className="link-btn" onClick={()=>setOpenMonths(new Set())}>Collapse all</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style={{width:"22%"}}>Month</th>
+              <th className="num-cell">Starting</th>
+              <th className="num-cell">Income</th>
+              <th className="num-cell">Expenses</th>
+              <th className="num-cell">Contribution</th>
+              <th className="num-cell">Ending</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {computed.map((m,idx)=>{
+              const isOpen = openMonths.has(m.id);
+              const contribIsSurplus = m.M < 0;
+              const toggle = ()=>setOpenMonths(prev=>{
+                const next = new Set(prev);
+                if(next.has(m.id)) next.delete(m.id); else next.add(m.id);
+                return next;
+              });
+              if(m.notTracked){
+                return (
+                  <tr key={m.id} className="tr-month" style={{cursor:"default",opacity:0.45}}>
+                    <td><span className="chev"> </span>{m.name}</td>
+                    <td colSpan="5" className="muted" style={{fontStyle:"italic",fontWeight:400}}>Not tracked — ledger starts later this year</td>
+                    <td></td>
+                  </tr>
+                );
+              }
+              return (
+                <React.Fragment key={m.id}>
+                  <tr className="tr-month" onClick={toggle}>
+                    <td><span className="chev">{isOpen?"▾":"▸"}</span>{m.name}</td>
+                    <td className="num-cell">{fmtShort(m.L)}</td>
+                    <td className="num-cell">{fmtShort(m.totalIncome)}</td>
+                    <td className="num-cell muted">{fmtShort(m.totalExpense)}</td>
+                    <td className={"num-cell "+(contribIsSurplus?"pos":(m.M>0?"neg":""))}>
+                      {contribIsSurplus ? `(${fmtShort(Math.abs(m.M))})` : (m.M>0.01 ? fmtShort(m.M) : "—")}
+                    </td>
+                    <td className="num-cell">{fmtShort(m.N)}</td>
+                    <td>
+                      <StatusBadge status={m.contributionStatus} needsContribution={m.M>0.01} compact />
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="month-detail">
+                      <td colSpan="7" style={{padding:0}}>
+                        <MonthDetail
+                          m={m}
+                          monthIdx={idx}
+                          ownerSplit={yr.ownerSplit}
+                          onAddBooking={()=>addBooking(idx)}
+                          onUpdateBooking={(id,f,v)=>updateBooking(idx,id,f,v)}
+                          onRemoveBooking={(id)=>removeBooking(idx,id)}
+                          onAddAdj={()=>addAdj(idx)}
+                          onUpdateAdj={(id,f,v)=>updateAdj(idx,id,f,v)}
+                          onRemoveAdj={(id)=>removeAdj(idx,id)}
+                          onSetManualStart={(v)=>setManualStart(idx,v)}
+                          onClearManualStart={()=>clearManualStart(idx)}
+                          onSetManualContribution={(v)=>setManualContribution(idx,v)}
+                          onClearManualContribution={()=>clearManualContribution(idx)}
+                          onSetStatus={(s)=>setStatus(idx,s)}
+                          isFirstMonth={idx===0}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="note-box">
+        Income collected during a month funds <i>next</i> month's expenses. The owner contribution for a month is sized to cover that month's expenses using only the carried-forward starting balance — it doesn't assume the current month's bookings arrive in time. A negative contribution means the starting balance already covers expenses with room to spare (a surplus, which simply carries forward).
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({status, needsContribution, compact}){
+  let cls="current", label=status||"Upcoming";
+  if(status==="Paid") cls="paid";
+  else if(status==="Upcoming") cls= needsContribution ? "upcoming" : "surplus";
+  else cls="current";
+  if(!needsContribution && status!=="Paid"){
+    label = status==="Upcoming" ? (compact ? "No contribution" : "No contribution needed") : status;
+  }
+  return <span className={"flag "+cls}><span className="dot"></span>{label}</span>;
+}
+
+function MonthDetail({m, monthIdx, ownerSplit, onAddBooking, onUpdateBooking, onRemoveBooking,
+  onAddAdj, onUpdateAdj, onRemoveAdj, onSetManualStart, onClearManualStart,
+  onSetManualContribution, onClearManualContribution, onSetStatus, isFirstMonth}){
+
+  const laddShare = m.M * (ownerSplit.ladd/100);
+  const daneShare = m.M * (ownerSplit.dane/100);
+
+  return (
+    <div className="month-detail-inner">
+      <div>
+        <div className="subhead">
+          <span>Bookings — {m.name}</span>
+          <button className="btn small" onClick={onAddBooking}>+ Add booking</button>
+        </div>
+        {m.bookings.length===0 ? (
+          <div className="empty-note">No bookings entered yet for {m.name}.</div>
+        ) : (
+          <table className="mini-table">
+            <thead><tr><th>Guest</th><th style={{width:160}}>Source</th><th className="num-cell">Amount</th><th></th></tr></thead>
+            <tbody>
+              {m.bookings.map(b=>(
+                <tr key={b.id}>
+                  <td><input type="text" value={b.guest} placeholder="Guest name"
+                    onChange={e=>onUpdateBooking(b.id,"guest",e.target.value)} /></td>
+                  <td>
+                    <select className="src" value={b.source||"Direct"} onChange={e=>onUpdateBooking(b.id,"source",e.target.value)}>
+                      <option>Direct</option>
+                      <option>VRBO</option>
+                      <option>Couples Airbnb</option>
+                      <option>Whole House Airbnb</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input type="number" step="0.01" value={b.amount}
+                      onChange={e=>onUpdateBooking(b.id,"amount",e.target.value)}
+                      style={{textAlign:"right"}} />
+                  </td>
+                  <td><button className="icon-btn" title="Remove" onClick={()=>onRemoveBooking(b.id)}>×</button></td>
+                </tr>
+              ))}
+              <tr className="tr-total">
+                <td colSpan="2">Total Projected Income</td>
+                <td className="num-cell">{fmt(m.totalIncome)}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+
+        <div className="subhead" style={{marginTop:18}}>
+          <span>Expense adjustments — one-off changes vs. baseline</span>
+          <button className="btn small" onClick={onAddAdj}>+ Add adjustment</button>
+        </div>
+        {m.expenseAdjustments.length===0 ? (
+          <div className="empty-note">Using baseline of {fmt(m.baseline)} with no adjustments.</div>
+        ) : (
+          <table className="mini-table">
+            <thead><tr><th>Reason</th><th className="num-cell">Amount</th><th></th></tr></thead>
+            <tbody>
+              {m.expenseAdjustments.map(a=>(
+                <tr key={a.id}>
+                  <td><input type="text" value={a.label} placeholder="e.g. Mortgage timing shift"
+                    onChange={e=>onUpdateAdj(a.id,"label",e.target.value)} /></td>
+                  <td>
+                    <input type="number" step="0.01" value={a.amount}
+                      onChange={e=>onUpdateAdj(a.id,"amount",e.target.value)}
+                      style={{textAlign:"right"}} placeholder="+/- amount" />
+                  </td>
+                  <td><button className="icon-btn" title="Remove" onClick={()=>onRemoveAdj(a.id)}>×</button></td>
+                </tr>
+              ))}
+              <tr className="tr-total">
+                <td>Total Expense ({fmt(m.baseline)} baseline {m.adjTotal>=0?"+":"-"} {fmt(Math.abs(m.adjTotal))} adj.)</td>
+                <td className="num-cell">{fmt(m.totalExpense)}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div>
+        <div className="subhead"><span>Balance &amp; Contribution</span></div>
+
+        {isFirstMonth ? (
+          <div className="field-row">
+            <label>Actual starting balance</label>
+            <input type="number" step="0.01" value={m.manualStartingBalance ?? ""}
+              onChange={e=>onSetManualStart(e.target.value)} placeholder="from bank statement" />
+          </div>
+        ) : (
+          <div className="field-row">
+            <label>Override starting bal.</label>
+            <input type="number" step="0.01" value={m.manualStartingBalance ?? ""}
+              onChange={e=>onSetManualStart(e.target.value)}
+              placeholder={fmt(m.L)+" (rolled forward)"} />
+            {m.manualStartingBalance!==null && (
+              <button className="btn ghost small" onClick={onClearManualStart}>reset to rollover</button>
+            )}
+          </div>
+        )}
+
+        <div className="field-row">
+          <label>Status</label>
+          <select value={m.contributionStatus||"Upcoming"} onChange={e=>onSetStatus(e.target.value)}>
+            <option>Upcoming</option>
+            <option>Paid</option>
+            <option>Current</option>
+          </select>
+        </div>
+
+        <div className="field-row">
+          <label>Override contribution</label>
+          <input type="number" step="0.01" value={m.manualContribution ?? ""}
+            onChange={e=>onSetManualContribution(e.target.value)}
+            placeholder={fmt(m.calculatedM)+" (calculated)"} />
+          {m.hasContributionOverride && (
+            <button className="btn ghost small" onClick={onClearManualContribution}>reset to calculated</button>
+          )}
+        </div>
+
+        <div className="calc-strip">
+          Starting balance <span className="eq">{fmt(m.L)}</span><br/>
+          − Total expense <span className="eq">{fmt(m.totalExpense)}</span><br/>
+          = Calculated {m.calculatedM>=0 ? "contribution required" : "surplus"} <span className="eq">{fmt(Math.abs(m.calculatedM))}</span><br/>
+          {m.hasContributionOverride && (
+            <React.Fragment>
+              <span className="muted">Overridden to</span> <span className="eq">{fmt(m.M)}</span><br/>
+            </React.Fragment>
+          )}
+          Ending balance (start + contribution) <span className="eq">{fmt(m.N)}</span><br/>
+          <span className="muted">→ becomes next month's rolled-forward starting balance once this month's income posts</span>
+        </div>
+
+        {m.M > 0.01 && (
+          <div className="calc-strip" style={{marginTop:10}}>
+            <b>Split due at start of {m.name}:</b><br/>
+            Ladd ({ownerSplit.ladd}%) <span className="eq">{fmt(laddShare)}</span><br/>
+            Dane ({ownerSplit.dane}%) <span className="eq">{fmt(daneShare)}</span>
+          </div>
+        )}
+        {m.M < -0.01 && (
+          <div className="calc-strip" style={{marginTop:10}}>
+            No contribution needed — <b>{fmt(Math.abs(m.M))}</b> surplus carries into next month.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- EXPENSES VIEW ----------------
+function ExpensesView({yr, updateYear, showToast}){
+  const baseline = yr.expenseItems.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const annualEstimate = baseline*12;
+
+  const addItem=()=>{
+    updateYear(y=>{ y.expenseItems.push({id:uid(), name:"", amount:0}); });
+  };
+  const updateItem=(id, field, val)=>{
+    updateYear(y=>{
+      const it = y.expenseItems.find(x=>x.id===id);
+      if(it) it[field] = field==="amount" ? (val===""?"":Number(val)) : val;
+    });
+  };
+  const removeItem=(id)=>{
+    updateYear(y=>{ y.expenseItems = y.expenseItems.filter(x=>x.id!==id); });
+  };
+  const setSplit=(owner, val)=>{
+    updateYear(y=>{
+      const v = Math.max(0,Math.min(100,Number(val)||0));
+      if(owner==="ladd"){ y.ownerSplit.ladd=v; y.ownerSplit.dane=100-v; }
+      else { y.ownerSplit.dane=v; y.ownerSplit.ladd=100-v; }
+    });
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <h2>Baseline Monthly Expenses <span className="hint">this is "Total Expense (Average)" for every month, before adjustments</span></h2>
+        <table className="mini-table">
+          <thead><tr><th>Item</th><th className="num-cell" style={{width:140}}>Monthly Amount</th><th></th></tr></thead>
+          <tbody>
+            {yr.expenseItems.map(it=>(
+              <tr key={it.id}>
+                <td><input type="text" value={it.name} onChange={e=>updateItem(it.id,"name",e.target.value)} /></td>
+                <td><input type="number" step="0.01" value={it.amount} style={{textAlign:"right"}}
+                  onChange={e=>updateItem(it.id,"amount",e.target.value)} /></td>
+                <td><button className="icon-btn" onClick={()=>removeItem(it.id)}>×</button></td>
+              </tr>
+            ))}
+            <tr className="tr-total">
+              <td>Estimated Total Monthly Expenses</td>
+              <td className="num-cell">{fmt(baseline)}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style={{marginTop:10}}>
+          <button className="btn small" onClick={addItem}>+ Add expense item</button>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>Annual Estimate</h2>
+        <div className="stat-row">
+          <div className="stat"><div className="num">{fmtShort(annualEstimate)}</div><div className="lbl">{yr.year} Estimated Expenses</div></div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>Ownership Split</h2>
+        <div className="field-row">
+          <label>Ladd's share (%)</label>
+          <input type="number" value={yr.ownerSplit.ladd} onChange={e=>setSplit("ladd",e.target.value)} style={{maxWidth:90}} />
+        </div>
+        <div className="field-row">
+          <label>Dane's share (%)</label>
+          <input type="number" value={yr.ownerSplit.dane} onChange={e=>setSplit("dane",e.target.value)} style={{maxWidth:90}} />
+        </div>
+        <div className="empty-note">Used to split owner contributions on the Contributions tab.</div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- CONTRIBUTIONS VIEW ----------------
+function ContributionsView({yr, updateYear}){
+  const computed = useMemo(()=>computeMonths(yr),[yr]);
+  let laddTotal=0, daneTotal=0, totalDue=0;
+
+  return (
+    <div className="card" style={{padding:0}}>
+      <div style={{padding:"22px 24px 4px"}}>
+        <h2 style={{margin:0}}>Owner Contribution Schedule <span className="hint">Ladd {yr.ownerSplit.ladd}% / Dane {yr.ownerSplit.dane}%</span></h2>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Month (due 1st)</th>
+            <th className="num-cell">Total Due</th>
+            <th className="num-cell">Ladd ({yr.ownerSplit.ladd}%)</th>
+            <th className="num-cell">Dane ({yr.ownerSplit.dane}%)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {computed.map(m=>{
+            if(m.notTracked){
+              return (
+                <tr key={m.id} style={{opacity:0.5}}>
+                  <td className="muted" style={{fontStyle:"italic"}}>{m.name} 1</td>
+                  <td colSpan="4" className="muted" style={{fontStyle:"italic"}}>Not tracked</td>
+                </tr>
+              );
+            }
+            const due = m.M;
+            const ladd = due * (yr.ownerSplit.ladd/100);
+            const dane = due * (yr.ownerSplit.dane/100);
+            if(due>0){ laddTotal+=ladd; daneTotal+=dane; totalDue+=due; }
+            const isSurplus = due < -0.01;
+            return (
+              <tr key={m.id}>
+                <td>{m.name} 1</td>
+                <td className={"num-cell"+(isSurplus?" pos":(due>0.01?" neg":""))}>
+                  {isSurplus ? `(${fmt(Math.abs(due))})` : fmt(due)}
+                </td>
+                <td className="num-cell">{due>0.01?fmt(ladd):"—"}</td>
+                <td className="num-cell">{due>0.01?fmt(dane):"—"}</td>
+                <td><StatusBadge status={m.contributionStatus} needsContribution={due>0.01} /></td>
+              </tr>
+            );
+          })}
+          <tr className="tr-total">
+            <td>Total ({yr.year})</td>
+            <td className="num-cell">{fmt(totalDue)}</td>
+            <td className="num-cell">{fmt(laddTotal)}</td>
+            <td className="num-cell">{fmt(daneTotal)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="note-box" style={{margin:"0 24px 22px"}}>
+        Only months with a positive contribution count toward owner totals. Surplus months (shown in parentheses) reduce future needs automatically through the rolling balance — they aren't billed back to owners.
+      </div>
+    </div>
+  );
+}
+
+// ---------------- RANGER VIEW ----------------
+function RangerView({yr, updateYear}){
+  const addItem=(monthIdx)=>{
+    updateYear(y=>{ y.months[monthIdx].ranger.push({id:uid(), label:"", amount:0}); });
+  };
+  const updateItem=(monthIdx, id, field, val)=>{
+    updateYear(y=>{
+      const it = y.months[monthIdx].ranger.find(x=>x.id===id);
+      if(it) it[field] = field==="amount" ? (val===""?"":Number(val)) : val;
+    });
+  };
+  const removeItem=(monthIdx,id)=>{
+    updateYear(y=>{ y.months[monthIdx].ranger = y.months[monthIdx].ranger.filter(x=>x.id!==id); });
+  };
+
+  const computed = useMemo(()=>computeMonths(yr),[yr]);
+  const total = computed.reduce((s,m)=>s+m.rangerTotal,0);
+  const winterMonths = computed.filter(m=>["November","December","January","February","March"].includes(m.name));
+
+  return (
+    <div>
+      <div className="card">
+        <h2>Polaris Ranger Income <span className="hint">tracked separately from the cabin operating account</span></h2>
+        <div className="stat-row">
+          <div className="stat"><div className="num">{fmtShort(total)}</div><div className="lbl">{yr.year} Ranger Total</div></div>
+          <div className="stat"><div className="num">{fmtShort(winterMonths.reduce((s,m)=>s+m.rangerTotal,0))}</div><div className="lbl">Winter Months (Nov–Mar) Total</div></div>
+        </div>
+      </div>
+      <div className="card" style={{padding:0}}>
+        <table>
+          <thead><tr><th style={{width:"18%"}}>Month</th><th>Entries</th><th className="num-cell" style={{width:120}}>Total</th></tr></thead>
+          <tbody>
+            {computed.map((m,idx)=>(
+              <tr key={m.id}>
+                <td style={{fontWeight:600,verticalAlign:"top",paddingTop:12}}>{m.name}</td>
+                <td>
+                  {m.ranger.length===0 && <span className="empty-note">No Ranger income logged.</span>}
+                  {m.ranger.map(r=>(
+                    <div key={r.id} style={{display:"flex",gap:6,marginBottom:5,alignItems:"center"}}>
+                      <input type="text" value={r.label} placeholder="renter / note" style={{flex:1}}
+                        onChange={e=>updateItem(idx,r.id,"label",e.target.value)} />
+                      <input type="number" step="0.01" value={r.amount} style={{width:100,textAlign:"right"}}
+                        onChange={e=>updateItem(idx,r.id,"amount",e.target.value)} />
+                      <button className="icon-btn" onClick={()=>removeItem(idx,r.id)}>×</button>
+                    </div>
+                  ))}
+                  <button className="btn ghost small" onClick={()=>addItem(idx)}>+ add entry</button>
+                </td>
+                <td className="num-cell" style={{verticalAlign:"top",paddingTop:12}}>{fmt(m.rangerTotal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- ANALYTICS VIEW ----------------
+function AnalyticsView({years, yr, yearKeys}){
+  const computed = useMemo(()=>computeMonths(yr),[yr]);
+  const annualExpenseEst = yr.expenseItems.reduce((s,e)=>s+(Number(e.amount)||0),0)*12;
+  const totalIncome = computed.reduce((s,m)=>s+m.totalIncome,0);
+  const pctBreakeven = annualExpenseEst>0 ? (totalIncome/annualExpenseEst*100) : 0;
+  const profit = totalIncome - annualExpenseEst; // positive once past breakeven
+
+  // source breakdown across all months in active year
+  const sourceTotals = {Direct:0, VRBO:0, "Couples Airbnb":0, "Whole House Airbnb":0};
+  let anyTagged = false;
+  computed.forEach(m=>m.bookings.forEach(b=>{
+    const src = b.source || "Direct";
+    if(b.sourceTagged) anyTagged = true;
+    sourceTotals[src] = (sourceTotals[src]||0) + (Number(b.amount)||0);
+  }));
+  const sourceTotalAll = Object.values(sourceTotals).reduce((a,b)=>a+b,0) || 1;
+
+  // bookings per month count, avg booking value
+  const monthlyBookingCounts = computed.map(m=>({name:m.name, count:m.bookings.length, income:m.totalIncome}));
+  const trackedMonths = computed.filter(m=>!m.notTracked);
+  const maxIncome = Math.max(1, ...trackedMonths.map(m=>m.totalIncome));
+  const totalBookings = computed.reduce((s,m)=>s+m.bookings.length,0);
+  const avgBookingValue = totalBookings>0 ? totalIncome/totalBookings : 0;
+
+  // breakeven per month: income vs expense
+  const monthsAtOrAboveBreakeven = trackedMonths.filter(m=>m.totalIncome >= m.totalExpense).length;
+
+  // multi-year comparison if available
+  const yearTotals = yearKeys.map(yk=>{
+    const c = computeMonths(years[yk]);
+    return {
+      year: yk,
+      income: c.reduce((s,m)=>s+m.totalIncome,0),
+      expense: c.reduce((s,m)=>s+m.totalExpense,0),
+      contribution: c.reduce((s,m)=>s+Math.max(0,m.M),0),
+    };
+  });
+  const maxYearVal = Math.max(1, ...yearTotals.flatMap(y=>[y.income,y.expense]));
+
+  return (
+    <div>
+      <div className="card">
+        <h2>Break-Even Snapshot <span className="hint">{yr.year}</span></h2>
+        <div className="stat-row">
+          <div className="stat"><div className="num">{fmtShort(totalIncome)}</div><div className="lbl">Projected Income YTD</div></div>
+          <div className="stat warn"><div className="num">{fmtShort(annualExpenseEst)}</div><div className="lbl">Annual Expense Estimate</div></div>
+          <div className={"stat "+(pctBreakeven>=100?"good":"warn")}><div className="num">{pctBreakeven.toFixed(1)}%</div><div className="lbl">Of Break-Even Covered</div></div>
+          <div className={"stat "+(profit>=0?"good":"warn")}>
+            <div className="num">{profit>=0 ? fmtShort(profit) : "—"}</div>
+            <div className="lbl">Profit {profit<0 && "(once past breakeven)"}</div>
+          </div>
+          <div className="stat"><div className="num">{monthsAtOrAboveBreakeven}/{trackedMonths.length}</div><div className="lbl">Months Income ≥ Expense</div></div>
+        </div>
+        <div className="gauge-track">
+          <div className={"gauge-fill"+(pctBreakeven>100?" over":"")} style={{width:Math.min(100,pctBreakeven)+"%"}}></div>
+        </div>
+        <div className="empty-note" style={{marginTop:6}}>
+          {pctBreakeven>=100
+            ? `Break-even covered — ${fmt(profit)} in profit above the annual estimate.`
+            : `Projected income falls short of the annual estimate by ${fmt(annualExpenseEst-totalIncome)}.`}
+        </div>
+      </div>
+
+      <div className="two-col">
+        <div className="card">
+          <h2>Income by Source</h2>
+          {!anyTagged ? (
+            <div className="empty-note">
+              No bookings have a source tagged yet. Open a month on the Ledger tab and set Direct / VRBO / Couples Airbnb / Whole House Airbnb on each booking — this card fills in as you tag them.
+            </div>
+          ) : (
+            Object.entries(sourceTotals).filter(([,v])=>v>0).map(([src,val])=>(
+              <div key={src} style={{marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                  <span>{sourceTag(src)}</span>
+                  <span className="muted">{fmt(val)} · {(val/sourceTotalAll*100).toFixed(0)}%</span>
+                </div>
+                <div className="gauge-track">
+                  <div className="gauge-fill" style={{width:(val/sourceTotalAll*100)+"%"}}></div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="card">
+          <h2>Booking Stats</h2>
+          <div className="stat-row" style={{gridTemplateColumns:"1fr 1fr"}}>
+            <div className="stat"><div className="num">{totalBookings}</div><div className="lbl">Total Bookings</div></div>
+            <div className="stat"><div className="num">{fmtShort(avgBookingValue)}</div><div className="lbl">Avg. Booking Value</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>Monthly Income vs. Expense</h2>
+        <table className="mini-table">
+          <thead><tr><th>Month</th><th></th><th className="num-cell">Income</th><th className="num-cell">Expense</th></tr></thead>
+          <tbody>
+            {trackedMonths.map(m=>(
+              <tr key={m.id}>
+                <td style={{width:90}}>{m.name.slice(0,3)}</td>
+                <td>
+                  <div style={{position:"relative",height:16,background:"var(--line)",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",
+                      width:(m.totalExpense/maxIncome*100)+"%", background:"#e2c9b8"}}></div>
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",
+                      width:(m.totalIncome/maxIncome*100)+"%", background:"var(--pine)", opacity:0.85}}></div>
+                  </div>
+                </td>
+                <td className="num-cell" style={{width:90}}>{fmtShort(m.totalIncome)}</td>
+                <td className="num-cell" style={{width:90}}>{fmtShort(m.totalExpense)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="empty-note" style={{marginTop:8}}>
+          <span style={{display:"inline-block",width:10,height:10,background:"var(--pine)",marginRight:4,verticalAlign:"middle"}}></span> Income
+          <span style={{display:"inline-block",width:10,height:10,background:"#e2c9b8",marginRight:4,marginLeft:14,verticalAlign:"middle"}}></span> Expense
+        </div>
+      </div>
+
+      {yearKeys.length>1 && (
+        <div className="card">
+          <h2>Year over Year</h2>
+          <table className="mini-table">
+            <thead><tr><th>Year</th><th></th><th className="num-cell">Income</th><th className="num-cell">Expense</th><th className="num-cell">Contributions</th></tr></thead>
+            <tbody>
+              {yearTotals.map(y=>(
+                <tr key={y.year}>
+                  <td style={{width:70,fontWeight:600}}>{y.year}</td>
+                  <td>
+                    <div style={{position:"relative",height:16,background:"var(--line)",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{position:"absolute",left:0,top:0,height:"100%",
+                        width:(y.expense/maxYearVal*100)+"%", background:"#e2c9b8"}}></div>
+                      <div style={{position:"absolute",left:0,top:0,height:"100%",
+                        width:(y.income/maxYearVal*100)+"%", background:"var(--pine)", opacity:0.85}}></div>
+                    </div>
+                  </td>
+                  <td className="num-cell" style={{width:100}}>{fmtShort(y.income)}</td>
+                  <td className="num-cell" style={{width:100}}>{fmtShort(y.expense)}</td>
+                  <td className="num-cell" style={{width:100}}>{fmtShort(y.contribution)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+</body>
+</html>
