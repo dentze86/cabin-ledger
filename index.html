@@ -423,12 +423,12 @@ function App(){
     const a = document.createElement('a');
     const datePart = new Date().toISOString().slice(0,10);
     a.href = url;
-    a.download = `cabin-ledger-backup-${datePart}.json`;
+    a.download = `cabin-ledger-${datePart}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast("Backup file downloaded");
+    showToast("File saved");
   };
 
   const triggerImport=()=>{
@@ -445,9 +445,9 @@ function App(){
         if(!data.years) throw new Error("not a cabin ledger backup");
         setYears(data.years);
         setActiveYear(data.activeYear || Object.keys(data.years)[0]);
-        showToast("Backup loaded");
+        showToast("File opened");
       }catch(err){
-        showToast("Couldn't read that file");
+        showToast("Couldn't open that file");
       }
     };
     reader.readAsText(file);
@@ -512,7 +512,7 @@ function App(){
       {tab==="ranger" && (
         <RangerView yr={yr} updateYear={(fn)=>updateYear(activeYear, fn)} />
       )}
-      <footer>cabin ledger · data auto-saves in this browser · use Download/Load backup to move between computers</footer>
+      <footer>cabin ledger · changes save automatically in this browser · use Save / Open to move between computers</footer>
       <div className={"toast"+(toast?" show":"")}>{toast}</div>
     </div>
   );
@@ -534,10 +534,10 @@ function Header({yearKeys, activeYear, setActiveYear, addYear, yr, onExport, onI
         </div>
       </div>
       <div className="data-toolbar">
-        <span className="data-toolbar-label">Data lives in this conversation only —</span>
-        <button className="link-btn" onClick={onExport}>Download backup</button>
+        <span className="data-toolbar-label">File —</span>
+        <button className="link-btn" onClick={onExport}>Save</button>
         <span className="sep">·</span>
-        <button className="link-btn" onClick={onImport}>Load backup</button>
+        <button className="link-btn" onClick={onImport}>Open</button>
       </div>
     </div>
   );
@@ -788,6 +788,14 @@ function MonthDetail({m, monthIdx, ownerSplit, onAddBooking, onUpdateBooking, on
   const laddShare = m.M * (ownerSplit.ladd/100);
   const daneShare = m.M * (ownerSplit.dane/100);
 
+  // sort bookings by check-in date; undated fall to bottom
+  const sortedBookings = [...m.bookings].sort((a,b)=>{
+    if(!a.checkIn && !b.checkIn) return 0;
+    if(!a.checkIn) return 1;
+    if(!b.checkIn) return -1;
+    return a.checkIn < b.checkIn ? -1 : a.checkIn > b.checkIn ? 1 : 0;
+  });
+
   return (
     <div className="month-detail-inner">
       <div>
@@ -801,26 +809,46 @@ function MonthDetail({m, monthIdx, ownerSplit, onAddBooking, onUpdateBooking, on
           <table className="mini-table">
             <thead><tr><th>Guest</th><th style={{width:160}}>Source</th><th className="num-cell">Amount</th><th></th></tr></thead>
             <tbody>
-              {m.bookings.map(b=>(
-                <tr key={b.id}>
-                  <td><input type="text" value={b.guest} placeholder="Guest name"
-                    onChange={e=>onUpdateBooking(b.id,"guest",e.target.value)} /></td>
-                  <td>
-                    <select className="src" value={b.source||"Direct"} onChange={e=>onUpdateBooking(b.id,"source",e.target.value)}>
-                      <option>Direct</option>
-                      <option>VRBO</option>
-                      <option>Couples Airbnb</option>
-                      <option>Whole House Airbnb</option>
-                    </select>
-                  </td>
-                  <td>
-                    <input type="number" step="0.01" value={b.amount}
-                      onChange={e=>onUpdateBooking(b.id,"amount",e.target.value)}
-                      style={{textAlign:"right"}} />
-                  </td>
-                  <td><button className="icon-btn" title="Remove" onClick={()=>onRemoveBooking(b.id)}>×</button></td>
-                </tr>
-              ))}
+              {sortedBookings.map(b=>{
+                const nights = (b.checkIn && b.checkOut)
+                  ? Math.round((new Date(b.checkOut)-new Date(b.checkIn))/(1000*60*60*24))
+                  : null;
+                const fmtDate = d => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+                return (
+                  <tr key={b.id}>
+                    <td>
+                      <input type="text" value={b.guest} placeholder="Guest name"
+                        onChange={e=>onUpdateBooking(b.id,"guest",e.target.value)} />
+                      <div style={{display:"flex",gap:4,marginTop:4,alignItems:"center"}}>
+                        <input type="date" value={b.checkIn||""} title="Check-in"
+                          style={{flex:1,fontSize:11,padding:"3px 5px",fontFamily:"'Courier New',monospace",color:"var(--ink-soft)"}}
+                          onChange={e=>onUpdateBooking(b.id,"checkIn",e.target.value)} />
+                        <span style={{color:"var(--ink-soft)",fontSize:11}}>→</span>
+                        <input type="date" value={b.checkOut||""} title="Check-out"
+                          style={{flex:1,fontSize:11,padding:"3px 5px",fontFamily:"'Courier New',monospace",color:"var(--ink-soft)"}}
+                          onChange={e=>onUpdateBooking(b.id,"checkOut",e.target.value)} />
+                        {nights!==null && nights>0 && (
+                          <span style={{fontFamily:"'Courier New',monospace",fontSize:10,color:"var(--ink-soft)",whiteSpace:"nowrap"}}>{nights}n</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <select className="src" value={b.source||"Direct"} onChange={e=>onUpdateBooking(b.id,"source",e.target.value)}>
+                        <option>Direct</option>
+                        <option>VRBO</option>
+                        <option>Couples Airbnb</option>
+                        <option>Whole House Airbnb</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="number" step="0.01" value={b.amount}
+                        onChange={e=>onUpdateBooking(b.id,"amount",e.target.value)}
+                        style={{textAlign:"right"}} />
+                    </td>
+                    <td><button className="icon-btn" title="Remove" onClick={()=>onRemoveBooking(b.id)}>×</button></td>
+                  </tr>
+                );
+              })}
               <tr className="tr-total">
                 <td colSpan="2">Total Projected Income</td>
                 <td className="num-cell">{fmt(m.totalIncome)}</td>
