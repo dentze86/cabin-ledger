@@ -120,7 +120,7 @@ tr:last-child td{border-bottom:none;}
 .num-cell{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .tr-total td{font-weight:700;border-top:1.5px solid var(--ink);border-bottom:none;background:#f1eee3;}
 .tr-month{background:transparent;cursor:pointer;border-bottom:1px solid var(--line);}
-.tr-month:hover{filter:brightness(0.96);}
+.tr-month:hover{background:#e8e4da !important;}
 .tr-month td{font-weight:400;color:var(--ink);padding-top:13px;padding-bottom:13px;}
 .tr-month td:first-child{font-weight:600;color:var(--pine-deep);}
 .tr-month .chev{display:inline-block;width:14px;font-family:'Courier New',monospace;color:var(--ink-soft);font-weight:400;}
@@ -962,15 +962,10 @@ function LedgerView({yr, updateYear, openMonths, setOpenMonths, showToast}){
               }
               // row color: contribution due = warm rust tint, strong positive net = pine tint, else neutral
               const needsContrib = m.M > 0.01;
-              const healthyGain = !needsContrib && m.N > m.L + 0.01;
-              const rowStyle = needsContrib
-                ? {borderLeft:"3px solid var(--rust)",background:"#fdf6f2"}
-                : healthyGain
-                  ? {borderLeft:"3px solid var(--pine)",background:"#f3f6f1"}
-                  : {borderLeft:"3px solid transparent"};
+              const rowBg = idx % 2 === 0 ? "transparent" : "#f4f1ea";
               return (
                 <React.Fragment key={m.id}>
-                  <tr className="tr-month" onClick={toggle} style={rowStyle}>
+                  <tr className="tr-month" onClick={toggle} style={{background:rowBg}}>
                     <td><span className="chev">{isOpen?"▾":"▸"}</span>{m.name}</td>
                     <td className="num-cell">{fmtShort(m.L)}</td>
                     <td className="num-cell">{fmtShort(m.totalIncome)}</td>
@@ -1009,18 +1004,8 @@ function LedgerView({yr, updateYear, openMonths, setOpenMonths, showToast}){
           </tbody>
         </table>
       </div>
-      <div style={{display:"flex",gap:20,padding:"10px 4px 0",flexWrap:"wrap",alignItems:"center"}}>
-        <div style={{display:"flex",alignItems:"center",gap:7,fontSize:11,color:"var(--ink-soft)"}}>
-          <span style={{display:"inline-block",width:12,height:14,borderLeft:"3px solid var(--rust)",background:"#fdf6f2"}}></span>
-          Contribution due
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:7,fontSize:11,color:"var(--ink-soft)"}}>
-          <span style={{display:"inline-block",width:12,height:14,borderLeft:"3px solid var(--pine)",background:"#f3f6f1"}}></span>
-          Income above expenses
-        </div>
-        <div style={{flex:1,fontSize:11,color:"var(--ink-soft)",fontStyle:"italic",textAlign:"right",minWidth:240}}>
-          Contribution covers the gap between the starting balance and that month's expenses — income posts after.
-        </div>
+      <div style={{padding:"8px 4px 0",fontSize:11,color:"var(--ink-soft)",fontStyle:"italic"}}>
+        Contribution covers the gap between the starting balance and that month's expenses — income posts after.
       </div>
     </div>
   );
