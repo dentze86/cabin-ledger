@@ -611,101 +611,185 @@ function buildYTDReport(yr, years, yearKeys){
   const totalIncome = computed.reduce((s,m)=>s+m.totalIncome,0);
   const totalExpense = computed.reduce((s,m)=>s+m.totalExpense,0);
   const totalContrib = computed.reduce((s,m)=>s+m.M,0);
-  const annualExpEst = yr.expenseItems.reduce((s,e)=>{
-    let t=0; for(let mo=1;mo<=12;mo++){const k=`${yr.year}-${String(mo).padStart(2,'0')}`; t+=effectiveAmount(e,k);} return s+t;
-  },0);
+  const annualExpEst = computed.reduce((s,m)=>s+m.totalExpense,0); // rate-change-aware
   const pct = annualExpEst>0?(totalIncome/annualExpEst*100):0;
   const profit = totalIncome - annualExpEst;
   const totalBookings = computed.reduce((s,m)=>s+m.bookings.length,0);
   const avgVal = totalBookings>0?totalIncome/totalBookings:0;
-  const maxInc = Math.max(1,...tracked.map(m=>m.totalIncome),Math.max(1,...tracked.map(m=>m.totalExpense)));
+  const monthsAbove = tracked.filter(m=>m.totalIncome>=m.totalExpense).length;
+  const maxInc = Math.max(1,...tracked.map(m=>m.totalIncome),...tracked.map(m=>m.totalExpense));
+
   const sourceTotals = {Direct:0,VRBO:0,"Couples Airbnb":0,"Whole House Airbnb":0};
-  computed.forEach(m=>m.bookings.forEach(b=>{ sourceTotals[b.source||"Direct"]=(sourceTotals[b.source||"Direct"]||0)+(Number(b.amount)||0); }));
-  const srcTotal = Object.values(sourceTotals).reduce((a,b)=>a+b,0)||1;
   const anyTagged = computed.some(m=>m.bookings.some(b=>b.sourceTagged));
+  computed.forEach(m=>m.bookings.forEach(b=>{
+    const src = b.source||"Direct";
+    sourceTotals[src]=(sourceTotals[src]||0)+(Number(b.amount)||0);
+  }));
+  const srcTotal = Object.values(sourceTotals).reduce((a,b)=>a+b,0)||1;
+
   const generated = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const nowKey = `${yr.year}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
 
-  const monthRows = tracked.map(m=>{
-    const net = m.totalIncome - m.totalExpense;
-    const incW = Math.round(m.totalIncome/maxInc*100);
-    const expW = Math.round(m.totalExpense/maxInc*100);
-    return `<tr>
-      <td>${m.name}</td>
-      <td class="pr-bar-cell"><div class="pr-bar"><div class="pr-bar-exp" style="width:${expW}%"></div><div class="pr-bar-inc" style="width:${incW}%"></div></div></td>
-      <td class="num-cell">${fmt(m.totalIncome)}</td>
-      <td class="num-cell">${fmt(m.totalExpense)}</td>
-      <td class="num-cell ${net>=0?'pr-pos':'pr-neg'}">${fmt(net)}</td>
-      <td class="num-cell">${m.M>0.01?fmt(m.M):'—'}</td>
-    </tr>`;
-  }).join('');
-
-  const srcRows = anyTagged ? Object.entries(sourceTotals).filter(([,v])=>v>0).map(([src,val])=>`
-    <div class="pr-src-row">
-      <div style="display:flex;justify-content:space-between;font-size:8pt">
-        <span>${src}</span><span>${fmt(val)} · ${(val/srcTotal*100).toFixed(0)}%</span>
-      </div>
-      <div class="pr-src-bar"><div class="pr-src-bar-fill" style="width:${(val/srcTotal*100).toFixed(1)}%"></div></div>
-    </div>`).join('') : '<p style="font-size:8pt;color:#52605a;font-style:italic">No source tags recorded yet.</p>';
-
-  const baselineRows = yr.expenseItems.map(e=>`
-    <tr><td>${e.name}</td><td class="num-cell">${fmt(Number(e.amount)||0)}</td><td class="num-cell" style="color:#52605a;font-size:8pt">${(e.changes&&e.changes.length)?e.changes.map(c=>`${c.effectiveMonth?MONTH_NAMES[parseInt(c.effectiveMonth.split('-')[1])-1]+' '+c.effectiveMonth.split('-')[0]:''}: ${fmt(Number(c.amount)||0)}`).join(', '):''}</td></tr>`).join('');
-
-  return `<div class="pr-page">
+  // ---- Page 1: Break-Even Snapshot ----
+  const page1 = `<div class="pr-page">
     <div class="pr-header">
-      <div class="pr-title">Hummingbird Hideaway — ${yr.year} Analysis</div>
-      <div class="pr-sub">Year-to-Date & Annual Projected Report · Generated ${generated}</div>
+      <div class="pr-title">Hummingbird Hideaway · ${yr.year}</div>
+      <div class="pr-sub">Year-to-Date &amp; Annual Projected Analysis · Generated ${generated}</div>
     </div>
 
     <div class="pr-section">
       <div class="pr-section-title">Break-Even Snapshot</div>
-      <div class="pr-stats">
+      <div class="pr-stats" style="grid-template-columns:repeat(5,1fr)">
         <div class="pr-stat"><div class="num">${fmt(totalIncome)}</div><div class="lbl">Projected Income YTD</div></div>
         <div class="pr-stat warn"><div class="num">${fmt(annualExpEst)}</div><div class="lbl">Annual Expense Est.</div></div>
-        <div class="pr-stat ${pct>=100?'good':'warn'}"><div class="num">${pct.toFixed(1)}%</div><div class="lbl">Of Break-Even Covered</div></div>
-        <div class="pr-stat ${profit>=0?'good':'warn'}"><div class="num">${profit>=0?fmt(profit):'—'}</div><div class="lbl">Profit ${profit<0?'(not yet)':''}</div></div>
+        <div class="pr-stat ${pct>=100?'good':'warn'}"><div class="num">${pct.toFixed(1)}%</div><div class="lbl">Break-Even Covered</div></div>
+        <div class="pr-stat ${profit>=0?'good':'warn'}"><div class="num">${profit>=0?fmt(profit):'—'}</div><div class="lbl">Profit${profit<0?' (not yet)':''}</div></div>
+        <div class="pr-stat"><div class="num">${monthsAbove}/${tracked.length}</div><div class="lbl">Months Income ≥ Expense</div></div>
       </div>
-      <div class="pr-gauge"><div class="pr-gauge-fill${pct>100?' over':''}" style="width:${Math.min(100,pct).toFixed(1)}%"></div></div>
-      <div class="pr-note">${pct>=100?`Income exceeds annual expense estimate by ${fmt(profit)}.`:`Income shortfall of ${fmt(annualExpEst-totalIncome)} vs. annual estimate.`}</div>
+      <div class="pr-gauge" style="margin:14pt 0 6pt"><div class="pr-gauge-fill${pct>100?' over':''}" style="width:${Math.min(100,pct).toFixed(1)}%"></div></div>
+      <div class="pr-note">${pct>=100
+        ? `Income exceeds the annual expense estimate by ${fmt(profit)}.`
+        : `Income shortfall of ${fmt(annualExpEst-totalIncome)} vs. annual estimate. ${fmt(annualExpEst-totalIncome)} more needed to break even.`
+      }</div>
+    </div>
+
+    <div class="pr-section" style="margin-top:28pt">
+      <div class="pr-section-title">Booking Stats</div>
+      <div class="pr-stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:0">
+        <div class="pr-stat"><div class="num">${totalBookings}</div><div class="lbl">Total Bookings</div></div>
+        <div class="pr-stat"><div class="num">${fmt(avgVal)}</div><div class="lbl">Avg. Booking Value</div></div>
+        <div class="pr-stat"><div class="num">${fmt(totalIncome/Math.max(1,tracked.length))}</div><div class="lbl">Avg. Monthly Income</div></div>
+      </div>
+    </div>
+
+    <div class="pr-section" style="margin-top:28pt">
+      <div class="pr-section-title">Income by Source</div>
+      ${anyTagged
+        ? Object.entries(sourceTotals).filter(([,v])=>v>0).map(([src,val])=>`
+          <div class="pr-src-row">
+            <div style="display:flex;justify-content:space-between;font-size:9pt;margin-bottom:4pt">
+              <span style="font-weight:600">${src}</span>
+              <span style="color:#52605a">${fmt(val)} · ${(val/srcTotal*100).toFixed(0)}%</span>
+            </div>
+            <div class="pr-src-bar"><div class="pr-src-bar-fill" style="width:${(val/srcTotal*100).toFixed(1)}%"></div></div>
+          </div>`).join('')
+        : '<p style="font-size:9pt;color:#52605a;font-style:italic">No bookings have a source tag recorded yet.</p>'
+      }
+    </div>
+  </div>`;
+
+  // ---- Page 2: Monthly Income vs. Expense ----
+  const monthRows = tracked.map((m,i)=>{
+    const net = m.totalIncome - m.totalExpense;
+    const incW = Math.round(m.totalIncome/maxInc*100);
+    const expW = Math.round(m.totalExpense/maxInc*100);
+    const bg = i%2===0 ? '' : 'style="background:#f7f4ee"';
+    return `<tr ${bg}>
+      <td style="font-weight:600">${m.name}</td>
+      <td class="pr-bar-cell">
+        <div class="pr-bar">
+          <div class="pr-bar-exp" style="width:${expW}%"></div>
+          <div class="pr-bar-inc" style="width:${incW}%"></div>
+        </div>
+      </td>
+      <td class="num-cell">${fmt(m.totalIncome)}</td>
+      <td class="num-cell" style="color:#52605a">${fmt(m.totalExpense)}</td>
+      <td class="num-cell ${net>=0?'pr-pos':'pr-neg'}">${fmt(net)}</td>
+      <td class="num-cell" style="color:#a8552f">${m.M>0.01?fmt(m.M):'—'}</td>
+      <td class="num-cell">${fmt(m.N)}</td>
+    </tr>`;
+  }).join('');
+
+  const page2 = `<div class="pr-page">
+    <div class="pr-header">
+      <div class="pr-title">Monthly Income vs. Expense</div>
+      <div class="pr-sub">Hummingbird Hideaway · ${yr.year} · Generated ${generated}</div>
     </div>
 
     <div class="pr-section">
-      <div class="pr-section-title">Monthly Income vs. Expense</div>
       <table class="pr-table">
-        <thead><tr><th>Month</th><th class="pr-bar-cell"></th><th class="num-cell">Income</th><th class="num-cell">Expenses</th><th class="num-cell">Net</th><th class="num-cell">Contribution</th></tr></thead>
-        <tbody>${monthRows}
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th class="pr-bar-cell"></th>
+            <th class="num-cell">Income</th>
+            <th class="num-cell">Expenses</th>
+            <th class="num-cell">Net</th>
+            <th class="num-cell">Contribution</th>
+            <th class="num-cell">Ending Bal.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${monthRows}
           <tr class="tr-total">
             <td colspan="2">Total</td>
             <td class="num-cell">${fmt(totalIncome)}</td>
             <td class="num-cell">${fmt(totalExpense)}</td>
             <td class="num-cell ${(totalIncome-totalExpense)>=0?'pr-pos':'pr-neg'}">${fmt(totalIncome-totalExpense)}</td>
             <td class="num-cell">${fmt(totalContrib)}</td>
+            <td class="num-cell">—</td>
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <div class="pr-two-col">
-      <div class="pr-section">
-        <div class="pr-section-title">Booking Stats</div>
-        <div class="pr-stats" style="grid-template-columns:1fr 1fr">
-          <div class="pr-stat"><div class="num">${totalBookings}</div><div class="lbl">Total Bookings</div></div>
-          <div class="pr-stat"><div class="num">${fmt(avgVal)}</div><div class="lbl">Avg. Value</div></div>
-        </div>
-        <div class="pr-section-title" style="margin-top:14pt">Income by Source</div>
-        ${srcRows}
-      </div>
-      <div class="pr-section">
-        <div class="pr-section-title">Expense Baseline</div>
-        <table class="pr-table">
-          <thead><tr><th>Item</th><th class="num-cell">Base/mo</th><th>Rate Changes</th></tr></thead>
-          <tbody>${baselineRows}
-            <tr class="tr-total"><td colspan="2">Current Monthly Total</td><td class="num-cell">${fmt(yr.expenseItems.reduce((s,e)=>s+effectiveAmount(e,new Date().toISOString().slice(0,7).replace('-','-')),0))}</td></tr>
-          </tbody>
-        </table>
-        <div class="pr-note">Ownership: Ladd ${yr.ownerSplit.ladd}% · Dane ${yr.ownerSplit.dane}%</div>
+      <div style="display:flex;gap:20pt;margin-top:10pt;font-size:8pt;color:#52605a">
+        <span><span style="display:inline-block;width:10pt;height:8pt;background:#2d4a3e;opacity:0.85;margin-right:5pt;vertical-align:middle"></span>Income</span>
+        <span><span style="display:inline-block;width:10pt;height:8pt;background:#e2c9b8;margin-right:5pt;vertical-align:middle"></span>Expenses</span>
+        <span style="margin-left:auto;font-style:italic">Net = Income minus Expenses · Ending Bal. = account balance at month close</span>
       </div>
     </div>
   </div>`;
+
+  // ---- Page 3: Expense Baseline ----
+  const baselineRows = yr.expenseItems.map((e,i)=>{
+    const currentAmt = effectiveAmount(e, nowKey);
+    const hasChanges = e.changes && e.changes.length>0;
+    const changeNote = hasChanges
+      ? e.changes.map(c=>`${c.effectiveMonth?MONTH_NAMES[parseInt(c.effectiveMonth.split('-')[1])-1]+' '+c.effectiveMonth.split('-')[0]:''}: ${fmt(Number(c.amount)||0)}`).join(', ')
+      : '';
+    const bg = i%2===0 ? '' : 'style="background:#f7f4ee"';
+    return `<tr ${bg}>
+      <td>${e.name}</td>
+      <td class="num-cell">${fmt(Number(e.amount)||0)}</td>
+      <td class="num-cell ${hasChanges?'pr-pos':''}">${hasChanges?fmt(currentAmt):'—'}</td>
+      <td style="font-size:8pt;color:#52605a">${changeNote}</td>
+    </tr>`;
+  }).join('');
+
+  const currentBaseline = yr.expenseItems.reduce((s,e)=>s+effectiveAmount(e,nowKey),0);
+
+  const page3 = `<div class="pr-page">
+    <div class="pr-header">
+      <div class="pr-title">Expense Baseline</div>
+      <div class="pr-sub">Hummingbird Hideaway · ${yr.year} · Generated ${generated}</div>
+    </div>
+
+    <div class="pr-section">
+      <table class="pr-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="num-cell">Base / mo</th>
+            <th class="num-cell">Current Rate</th>
+            <th>Rate Changes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${baselineRows}
+          <tr class="tr-total">
+            <td colspan="2">Current Monthly Total</td>
+            <td class="num-cell">${fmt(currentBaseline)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:14pt;font-size:9pt;color:#52605a">
+        Annual estimate (with all rate changes): <strong>${fmt(annualExpEst)}</strong><br/>
+        Ownership: Ladd ${yr.ownerSplit.ladd}% · Dane ${yr.ownerSplit.dane}%
+      </div>
+    </div>
+  </div>`;
+
+  return page1 + page2 + page3;
 }
 
 function buildYoYReport(years, yearKeys){
@@ -919,8 +1003,6 @@ function LedgerView({yr, updateYear, openMonths, setOpenMonths, showToast}){
           <div className="stat"><div className="num">{fmtShort(totalIncomeYTD)}</div><div className="lbl">Total Projected Income</div></div>
           <div className="stat warn"><div className="num">{fmtShort(totalExpenseYTD)}</div><div className="lbl">Total Expenses</div></div>
           <div className={"stat"+(totalContribYTD>0?" warn":"")}><div className="num">{fmtShort(totalContribYTD)}</div><div className="lbl">Owner Contributions Needed</div></div>
-          <div className="stat good"><div className="num">{fmtShort(totalSurplusYTD)}</div><div className="lbl">Surplus Months (offset)</div></div>
-          <div className="stat"><div className="num">{lastMonth?fmtShort(lastMonth.N):"$0"}</div><div className="lbl">Balance, end of {lastMonth?.name}</div></div>
         </div>
       </div>
 
