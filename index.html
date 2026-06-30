@@ -568,7 +568,6 @@ function Header({yearKeys, activeYear, setActiveYear, addYear, yr, onExport, onI
       <div className="masthead">
         <div className="title-block">
           <h1>Cabin Ledger</h1>
-          <span className="sub">Ladd {yr.ownerSplit.ladd}% · Dane {yr.ownerSplit.dane}%</span>
         </div>
         <div className="year-tabs">
           {yearKeys.map(y=>(
@@ -789,7 +788,123 @@ function buildYTDReport(yr, years, yearKeys){
     </div>
   </div>`;
 
-  return page1 + page2 + page3;
+  // ---- Page 4: Night Analytics ----
+  const ns = computeNightStats(computed, yr);
+  const nightSources = Object.entries(ns.nightsBySource).filter(([,v])=>v>0)
+    .sort((a,b)=>b[1]-a[1]);
+  const totalNightSrc = nightSources.reduce((s,[,v])=>s+v,0)||1;
+  const maxRpn = Math.max(1,...nightSources.map(([src])=>ns.revPerNightBySource[src]||0));
+  const maxMonthNights = Math.max(1,...MONTH_NAMES.map(n=>ns.monthlyNights[n]||0));
+  const maxDays = Math.max(1,...MONTH_NAMES.map(n=>ns.monthlyDays[n]||30));
+  const totalDays = MONTH_NAMES.reduce((s,n)=>s+(ns.monthlyDays[n]||0),0);
+
+  const occupancyRows = computed.filter(m=>!m.notTracked).map((m,i)=>{
+    const nights = ns.monthlyNights[m.name]||0;
+    const days = ns.monthlyDays[m.name]||30;
+    const occ = days>0?(nights/days*100):0;
+    const nightW = Math.round(nights/maxDays*100);
+    const dayW = Math.round(days/maxDays*100);
+    const bg = i%2===0?'':'style="background:#f7f4ee"';
+    return `<tr ${bg}>
+      <td style="font-weight:600">${m.name}</td>
+      <td class="pr-bar-cell">
+        <div class="pr-bar">
+          <div class="pr-bar-exp" style="width:${dayW}%"></div>
+          <div class="pr-bar-inc" style="width:${nightW}%"></div>
+        </div>
+      </td>
+      <td class="num-cell">${nights}</td>
+      <td class="num-cell" style="color:#52605a">${days}</td>
+      <td class="num-cell" style="font-weight:${occ>=60?600:400}">${occ.toFixed(0)}%</td>
+    </tr>`;
+  }).join('');
+
+  const nightSrcRows = nightSources.map(([src,nights])=>{
+    const rpn = ns.revPerNightBySource[src]||0;
+    const pct = (nights/totalNightSrc*100).toFixed(0);
+    const rpnW = Math.round(rpn/maxRpn*100);
+    const nightW2 = Math.round(nights/totalNightSrc*100);
+    return `<tr>
+      <td>${src}</td>
+      <td class="num-cell">${nights}</td>
+      <td class="num-cell">${pct}%</td>
+      <td class="pr-bar-cell"><div class="pr-bar"><div class="pr-bar-inc" style="width:${nightW2}%"></div></div></td>
+      <td class="num-cell">${fmt(rpn)}</td>
+      <td class="pr-bar-cell"><div class="pr-bar"><div class="pr-bar-inc" style="width:${rpnW}%"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  const page4 = `<div class="pr-page">
+    <div class="pr-header">
+      <div class="pr-title">Night &amp; Occupancy Analytics</div>
+      <div class="pr-sub">Hummingbird Hideaway · ${yr.year} · Generated ${generated}</div>
+    </div>
+
+    <div class="pr-section">
+      <div class="pr-section-title">Occupancy Summary</div>
+      <div class="pr-stats" style="grid-template-columns:repeat(4,1fr)">
+        <div class="pr-stat"><div class="num">${ns.totalNights}</div><div class="lbl">Total Nights Booked</div></div>
+        <div class="pr-stat"><div class="num">${ns.occupancyRate.toFixed(0)}%</div><div class="lbl">Annual Occupancy Rate</div></div>
+        <div class="pr-stat"><div class="num">${ns.avgNightsPerBooking.toFixed(1)}</div><div class="lbl">Avg. Nights / Booking</div></div>
+        <div class="pr-stat"><div class="num">${fmt(ns.revPerNight)}</div><div class="lbl">Revenue / Night</div></div>
+      </div>
+      <div class="pr-stats" style="grid-template-columns:repeat(4,1fr);margin-top:0">
+        <div class="pr-stat"><div class="num">${ns.avgGap!==null?ns.avgGap+'d':'—'}</div><div class="lbl">Avg. Gap Between Stays</div></div>
+        <div class="pr-stat"><div class="num">${ns.validBookings}</div><div class="lbl">Bookings With Dates</div></div>
+        <div class="pr-stat"><div class="num">${totalDays}</div><div class="lbl">Days Available (year)</div></div>
+        <div class="pr-stat"><div class="num">${fmt(computed.reduce((s,m)=>s+m.totalIncome,0)/Math.max(1,ns.validBookings))}</div><div class="lbl">Avg. Booking Value</div></div>
+      </div>
+    </div>
+
+    <div class="pr-section">
+      <div class="pr-section-title">Monthly Occupancy</div>
+      <table class="pr-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th class="pr-bar-cell"></th>
+            <th class="num-cell">Nights Booked</th>
+            <th class="num-cell">Days in Month</th>
+            <th class="num-cell">Occupancy %</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${occupancyRows}
+          <tr class="tr-total">
+            <td colspan="2">Total / Overall</td>
+            <td class="num-cell">${ns.totalNights}</td>
+            <td class="num-cell">${totalDays}</td>
+            <td class="num-cell">${ns.occupancyRate.toFixed(0)}%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="display:flex;gap:20pt;margin-top:8pt;font-size:8pt;color:#52605a">
+        <span><span style="display:inline-block;width:10pt;height:8pt;background:#2d4a3e;opacity:0.85;margin-right:5pt;vertical-align:middle"></span>Nights booked</span>
+        <span><span style="display:inline-block;width:10pt;height:8pt;background:#e2c9b8;margin-right:5pt;vertical-align:middle"></span>Days in month</span>
+      </div>
+    </div>
+
+    ${nightSources.length>0?`
+    <div class="pr-section" style="margin-top:20pt">
+      <div class="pr-section-title">Nights &amp; Revenue per Night by Source</div>
+      <table class="pr-table">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th class="num-cell">Nights</th>
+            <th class="num-cell">Share</th>
+            <th class="pr-bar-cell">Nights</th>
+            <th class="num-cell">Rev / Night</th>
+            <th class="pr-bar-cell">Rev / Night</th>
+          </tr>
+        </thead>
+        <tbody>${nightSrcRows}</tbody>
+      </table>
+      <div class="pr-note" style="margin-top:8pt">Revenue per night = total source revenue ÷ total source nights. Higher rate = more valuable booking type per night stayed.</div>
+    </div>`:''}
+  </div>`;
+
+  return page1 + page2 + page3 + page4;
 }
 
 function buildYoYReport(years, yearKeys){
@@ -1461,7 +1576,6 @@ function ContributionsView({yr, updateYear}){
             <th className="num-cell">Total Due</th>
             <th className="num-cell">Ladd ({yr.ownerSplit.ladd}%)</th>
             <th className="num-cell">Dane ({yr.ownerSplit.dane}%)</th>
-            <th>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -1470,7 +1584,7 @@ function ContributionsView({yr, updateYear}){
               return (
                 <tr key={m.id} style={{opacity:0.5}}>
                   <td className="muted" style={{fontStyle:"italic"}}>{m.name} 1</td>
-                  <td colSpan="4" className="muted" style={{fontStyle:"italic"}}>Not tracked</td>
+                  <td colSpan="3" className="muted" style={{fontStyle:"italic"}}>Not tracked</td>
                 </tr>
               );
             }
@@ -1486,7 +1600,6 @@ function ContributionsView({yr, updateYear}){
                 </td>
                 <td className="num-cell">{due>0.01?fmt(ladd):"—"}</td>
                 <td className="num-cell">{due>0.01?fmt(dane):"—"}</td>
-                <td><StatusBadge status={m.contributionStatus} needsContribution={due>0.01} /></td>
               </tr>
             );
           })}
@@ -1495,12 +1608,11 @@ function ContributionsView({yr, updateYear}){
             <td className="num-cell">{fmt(totalDue)}</td>
             <td className="num-cell">{fmt(laddTotal)}</td>
             <td className="num-cell">{fmt(daneTotal)}</td>
-            <td></td>
           </tr>
         </tbody>
       </table>
       <div className="note-box" style={{margin:"0 24px 22px"}}>
-        Only months with a positive contribution count toward owner totals. Surplus months (shown in parentheses) reduce future needs automatically through the rolling balance — they aren't billed back to owners.
+        Upcoming contributions are <i>projected</i> — amounts will adjust automatically as new bookings are added or removed. Only months where the starting balance falls short of that month's expenses require a contribution.
       </div>
     </div>
   );
@@ -1564,6 +1676,64 @@ function RangerView({yr, updateYear}){
   );
 }
 
+// ---------------- NIGHT STATS ----------------
+function computeNightStats(computed, yr){
+  const nightsBySource = {Direct:0, VRBO:0, "Couples Airbnb":0, "Whole House Airbnb":0};
+  const revenueBySource = {Direct:0, VRBO:0, "Couples Airbnb":0, "Whole House Airbnb":0};
+  const monthlyNights = {};
+  const monthlyDays = {};
+  let totalNights = 0, validBookings = 0;
+  const allBookings = [];
+
+  MONTH_NAMES.forEach((name,i)=>{
+    const daysInMonth = new Date(yr.year, i+1, 0).getDate();
+    monthlyDays[name] = daysInMonth;
+    monthlyNights[name] = 0;
+  });
+
+  computed.forEach(m=>{
+    m.bookings.forEach(b=>{
+      if(!b.checkIn || !b.checkOut) return;
+      const ci = new Date(b.checkIn+'T12:00:00');
+      const co = new Date(b.checkOut+'T12:00:00');
+      const nights = Math.round((co-ci)/(1000*60*60*24));
+      if(nights <= 0) return; // guard bad dates
+      const src = b.source || "Direct";
+      nightsBySource[src] = (nightsBySource[src]||0) + nights;
+      revenueBySource[src] = (revenueBySource[src]||0) + (Number(b.amount)||0);
+      monthlyNights[m.name] = (monthlyNights[m.name]||0) + nights;
+      totalNights += nights;
+      validBookings++;
+      allBookings.push({...b, nights, checkInDate: ci, checkOutDate: co});
+    });
+  });
+
+  // Sort by check-in for gap analysis
+  allBookings.sort((a,b)=>a.checkInDate-b.checkInDate);
+  const gaps = [];
+  for(let i=1;i<allBookings.length;i++){
+    const gap = Math.round((allBookings[i].checkInDate - allBookings[i-1].checkOutDate)/(1000*60*60*24));
+    if(gap >= 0) gaps.push(gap);
+  }
+  const avgGap = gaps.length ? Math.round(gaps.reduce((a,b)=>a+b,0)/gaps.length) : null;
+  const avgNightsPerBooking = validBookings ? (totalNights/validBookings) : 0;
+  const totalDaysInYear = MONTH_NAMES.reduce((s,n)=>s+(monthlyDays[n]||30),0);
+  const occupancyRate = totalDaysInYear > 0 ? (totalNights/totalDaysInYear*100) : 0;
+  const revPerNight = totalNights > 0 ? computed.reduce((s,m)=>s+m.totalIncome,0)/totalNights : 0;
+
+  // Revenue per night by source
+  const revPerNightBySource = {};
+  Object.keys(nightsBySource).forEach(src=>{
+    if(nightsBySource[src]>0) revPerNightBySource[src] = revenueBySource[src]/nightsBySource[src];
+  });
+
+  return {
+    totalNights, validBookings, avgNightsPerBooking, avgGap, occupancyRate,
+    revPerNight, nightsBySource, revenueBySource, revPerNightBySource,
+    monthlyNights, monthlyDays, allBookings
+  };
+}
+
 // ---------------- ANALYTICS VIEW ----------------
 function AnalyticsView({years, yr, yearKeys}){
   const computed = useMemo(()=>computeMonths(yr),[yr]);
@@ -1604,6 +1774,13 @@ function AnalyticsView({years, yr, yearKeys}){
     };
   });
   const maxYearVal = Math.max(1, ...yearTotals.flatMap(y=>[y.income,y.expense]));
+
+  // night stats
+  const ns = useMemo(()=>computeNightStats(computed, yr),[computed, yr]);
+  const maxMonthlyNights = Math.max(1, ...MONTH_NAMES.map(n=>ns.monthlyNights[n]||0));
+  const maxMonthlyDays = Math.max(1, ...MONTH_NAMES.map(n=>ns.monthlyDays[n]||30));
+  const nightSources = Object.entries(ns.nightsBySource).filter(([,v])=>v>0);
+  const totalNightSources = nightSources.reduce((s,[,v])=>s+v,0)||1;
 
   return (
     <div>
@@ -1659,12 +1836,111 @@ function AnalyticsView({years, yr, yearKeys}){
 
         <div className="card">
           <h2>Booking Stats</h2>
-          <div className="stat-row" style={{gridTemplateColumns:"1fr 1fr"}}>
+          <div className="stat-row" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
             <div className="stat"><div className="num">{totalBookings}</div><div className="lbl">Total Bookings</div></div>
             <div className="stat"><div className="num">{fmtShort(avgBookingValue)}</div><div className="lbl">Avg. Booking Value</div></div>
+            <div className="stat"><div className="num">{ns.totalNights}</div><div className="lbl">Total Nights Booked</div></div>
+            <div className="stat"><div className="num">{ns.occupancyRate.toFixed(0)}%</div><div className="lbl">Occupancy Rate</div></div>
+          </div>
+          <div className="stat-row" style={{gridTemplateColumns:"repeat(4,1fr)",marginTop:4}}>
+            <div className="stat"><div className="num">{ns.avgNightsPerBooking.toFixed(1)}</div><div className="lbl">Avg. Nights / Booking</div></div>
+            <div className="stat"><div className="num">{fmtShort(ns.revPerNight)}</div><div className="lbl">Revenue / Night</div></div>
+            <div className="stat"><div className="num">{ns.avgGap!==null?`${ns.avgGap}d`:"—"}</div><div className="lbl">Avg. Gap Between Stays</div></div>
+            <div className="stat"><div className="num">{ns.validBookings}</div><div className="lbl">Bookings With Dates</div></div>
           </div>
         </div>
       </div>
+
+      <div className="card">
+        <h2>Occupancy &amp; Nights by Month</h2>
+        <table className="mini-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th></th>
+              <th className="num-cell">Nights Booked</th>
+              <th className="num-cell">Days Available</th>
+              <th className="num-cell">Occupancy</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trackedMonths.map(m=>{
+              const nights = ns.monthlyNights[m.name]||0;
+              const days = ns.monthlyDays[m.name]||30;
+              const occ = days>0?(nights/days*100):0;
+              return (
+                <tr key={m.id}>
+                  <td style={{width:90}}>{m.name.slice(0,3)}</td>
+                  <td>
+                    <div style={{position:"relative",height:14,background:"var(--line)",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{position:"absolute",left:0,top:0,height:"100%",
+                        width:(days/maxMonthlyDays*100)+"%",background:"#e2c9b8"}}></div>
+                      <div style={{position:"absolute",left:0,top:0,height:"100%",
+                        width:(nights/maxMonthlyDays*100)+"%",background:"var(--pine)",opacity:0.85}}></div>
+                    </div>
+                  </td>
+                  <td className="num-cell" style={{width:90}}>{nights}</td>
+                  <td className="num-cell" style={{width:90}}>{days}</td>
+                  <td className={"num-cell "+(occ>=70?"pos":occ>=40?"":"")} style={{width:70,fontWeight:occ>=60?600:400}}>
+                    {occ.toFixed(0)}%
+                  </td>
+                </tr>
+              );
+            })}
+            <tr className="tr-total">
+              <td colSpan="2">Total / Average</td>
+              <td className="num-cell">{ns.totalNights}</td>
+              <td className="num-cell">{MONTH_NAMES.reduce((s,n)=>s+(ns.monthlyDays[n]||0),0)}</td>
+              <td className="num-cell">{ns.occupancyRate.toFixed(0)}%</td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="empty-note" style={{marginTop:8}}>
+          <span style={{display:"inline-block",width:10,height:10,background:"var(--pine)",marginRight:4,verticalAlign:"middle"}}></span> Nights booked
+          <span style={{display:"inline-block",width:10,height:10,background:"#e2c9b8",marginRight:4,marginLeft:14,verticalAlign:"middle"}}></span> Days in month
+        </div>
+      </div>
+
+      {nightSources.length>0 && (
+        <div className="two-col">
+          <div className="card">
+            <h2>Nights by Source</h2>
+            {nightSources.map(([src,nights])=>(
+              <div key={src} style={{marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                  <span>{sourceTag(src)}</span>
+                  <span className="muted">{nights} nights · {(nights/totalNightSources*100).toFixed(0)}%</span>
+                </div>
+                <div className="gauge-track">
+                  <div className="gauge-fill" style={{width:(nights/totalNightSources*100)+"%"}}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="card">
+            <h2>Revenue per Night by Source</h2>
+            {nightSources.length===0 ? (
+              <div className="empty-note">No dated bookings yet.</div>
+            ) : (()=>{
+              const maxRpn = Math.max(1,...nightSources.map(([src])=>ns.revPerNightBySource[src]||0));
+              return nightSources.sort((a,b)=>(ns.revPerNightBySource[b[0]]||0)-(ns.revPerNightBySource[a[0]]||0)).map(([src])=>{
+                const rpn = ns.revPerNightBySource[src]||0;
+                return (
+                  <div key={src} style={{marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                      <span>{sourceTag(src)}</span>
+                      <span className="muted">{fmt(rpn)}/night</span>
+                    </div>
+                    <div className="gauge-track">
+                      <div className="gauge-fill" style={{width:(rpn/maxRpn*100)+"%"}}></div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h2>Monthly Income vs. Expense</h2>
