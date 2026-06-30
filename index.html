@@ -613,6 +613,8 @@ function buildYTDReport(yr, years, yearKeys){
   const annualExpEst = computed.reduce((s,m)=>s+m.totalExpense,0); // rate-change-aware
   const pct = annualExpEst>0?(totalIncome/annualExpEst*100):0;
   const profit = totalIncome - annualExpEst;
+  const shortfall = Math.max(0, annualExpEst - totalIncome);
+  const bridge = Math.max(0, totalContrib - shortfall);
   const totalBookings = computed.reduce((s,m)=>s+m.bookings.length,0);
   const avgVal = totalBookings>0?totalIncome/totalBookings:0;
   const monthsAbove = tracked.filter(m=>m.totalIncome>=m.totalExpense).length;
@@ -675,9 +677,17 @@ function buildYTDReport(yr, years, yearKeys){
         : '<p style="font-size:9pt;color:#52605a;font-style:italic">No bookings have a source tag recorded yet.</p>'
       }
     </div>
-  </div>`;
 
-  // ---- Page 2: Monthly Income vs. Expense ----
+    <div style="margin-top:28pt;border-top:0.5pt solid #d8d2c4;padding-top:14pt">
+      <div style="font-family:'Courier New',monospace;font-size:7pt;letter-spacing:0.08em;text-transform:uppercase;color:#52605a;margin-bottom:8pt">Why break-even % differs from owner contributions needed</div>
+      <div style="font-size:8.5pt;color:#1f2a23;line-height:1.7">
+        <strong>Break-even %</strong> asks: <em>"Will this cabin pay for itself over the full year?"</em> It compares total projected income to total annual expenses as one lump sum — a sustainability check.<br/>
+        <strong>Owner contributions</strong> ask: <em>"How much cash do we need to deposit, and when?"</em> Bills are due every month, but income arrives unevenly — summer bookings can't pay November's mortgage. Each month's contribution is sized to cover that month's expenses using only the carried-forward starting balance, without assuming the current month's bookings have posted yet.<br/>
+        ${bridge>0 ? `Of the ${fmt(totalContrib)} in total contributions, roughly <strong>${fmt(bridge)}</strong> is a timing bridge — money that goes in during slow months and comes back through the rolling balance once bookings post. The remaining <strong>${fmt(Math.max(0,shortfall))}</strong> reflects income genuinely falling short of annual expenses.` : `All contributions this year are timing bridges — income is on track to cover expenses once the year closes.`}
+      </div>
+      <div style="font-size:8pt;color:#52605a;font-style:italic;margin-top:6pt">Short version: break-even is an annual picture; contributions are a monthly cash-flow tool.</div>
+    </div>
+  </div>`;
   const monthRows = tracked.map((m,i)=>{
     const net = m.totalIncome - m.totalExpense;
     const incW = Math.round(m.totalIncome/maxInc*100);
@@ -1734,6 +1744,41 @@ function computeNightStats(computed, yr){
   };
 }
 
+function BreakevenNote({totalContrib, shortfall}){
+  const [open, setOpen] = useState(false);
+  const bridge = totalContrib - Math.max(0, shortfall);
+  return (
+    <div style={{marginTop:10,borderTop:"1px solid var(--line)",paddingTop:8}}>
+      <button className="link-btn" style={{fontSize:11,display:"flex",alignItems:"center",gap:5}}
+        onClick={()=>setOpen(o=>!o)}>
+        <span style={{fontFamily:"'Courier New',monospace",fontSize:10}}>{open?"▾":"▸"}</span>
+        Why does break-even % differ from owner contributions needed?
+      </button>
+      {open && (
+        <div style={{marginTop:10,fontSize:12,color:"var(--ink-soft)",lineHeight:1.7,maxWidth:700}}>
+          <p style={{margin:"0 0 8px"}}>
+            These two numbers measure different things:
+          </p>
+          <p style={{margin:"0 0 8px"}}>
+            <strong style={{color:"var(--ink)"}}>Break-even %</strong> asks: <em>"Will this cabin pay for itself over the full year?"</em> It compares total projected income to total annual expenses as one lump sum — a sustainability check.
+          </p>
+          <p style={{margin:"0 0 8px"}}>
+            <strong style={{color:"var(--ink)"}}>Owner contributions</strong> ask: <em>"How much cash do we need to deposit, and when?"</em> Bills are due every month, but income arrives unevenly — summer bookings can't pay November's mortgage. Each month's contribution is sized to cover that month's expenses using only the carried-forward starting balance, without assuming the current month's bookings have posted yet.
+          </p>
+          {bridge > 0 && (
+            <p style={{margin:"0 0 8px"}}>
+              Of the {fmt(totalContrib)} in total contributions, roughly <strong style={{color:"var(--ink)"}}>{fmt(bridge)}</strong> is a timing bridge — money that goes in at the start of a slow month and comes back through the rolling balance once bookings post. The remaining <strong style={{color:"var(--ink)"}}>{fmt(Math.max(0,shortfall))}</strong> reflects income genuinely falling short of annual expenses.
+            </p>
+          )}
+          <p style={{margin:0,fontStyle:"italic"}}>
+            Short version: break-even is an annual picture; contributions are a monthly cash-flow tool.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------- ANALYTICS VIEW ----------------
 function AnalyticsView({years, yr, yearKeys}){
   const computed = useMemo(()=>computeMonths(yr),[yr]);
@@ -1810,6 +1855,7 @@ function AnalyticsView({years, yr, yearKeys}){
             ? `Break-even covered — ${fmt(profit)} in profit above the annual estimate.`
             : `Projected income falls short of the annual estimate by ${fmt(annualExpenseEst-totalIncome)}.`}
         </div>
+        <BreakevenNote totalContrib={computed.reduce((s,m)=>s+m.M,0)} shortfall={annualExpenseEst-totalIncome} />
       </div>
 
       <div className="two-col">
