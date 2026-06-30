@@ -561,43 +561,43 @@ function Tabs({tab,setTab}){
 }
 
 // ---------------- CALC ENGINE ----------------
-// Replicates: K = -(baseline + sum(adjustments))
-//             L = manualStartingBalance if set on month 0, else prevMonth.J + prevMonth.K + prevMonth.N
-//             M = -K - L   (shortfall owners must contribute; negative = surplus)
-//             N = L + M
+// L = starting balance (manual override, or prev month's ending balance N)
+// M = contribution owners must deposit at start of month to cover expenses
+//     M = max(0, totalExpense - L) ... negative means surplus, no contribution needed
+// N = ending balance = L + M + income - expenses  (what actually lands in the account)
+// Next month's L = this month's N  (unless manually overridden)
 function computeMonths(yr){
   const baseline = yr.expenseItems.reduce((s,e)=>s+(Number(e.amount)||0),0);
   const out=[];
-  let prevJ=null, prevK=null, prevN=null;
+  let prevN=null;
   yr.months.forEach((m,i)=>{
     if(m.notTracked){
       out.push({...m, totalIncome:0, baseline, adjTotal:0, totalExpense:0, K:0, L:null, M:0, N:null,
         rangerTotal:0, calculatedM:0, hasContributionOverride:false});
-      prevJ=null; prevK=null; prevN=null;
+      prevN=null;
       return;
     }
     const totalIncome = m.bookings.reduce((s,b)=>s+(Number(b.amount)||0),0);
     const adjTotal = m.expenseAdjustments.reduce((s,a)=>s+(Number(a.amount)||0),0);
-    const totalExpense = baseline + adjTotal; // positive number
-    const K = -totalExpense;
+    const totalExpense = baseline + adjTotal;
     let L;
     if(m.manualStartingBalance!==null && m.manualStartingBalance!==undefined){
       L = Number(m.manualStartingBalance)||0;
-    } else if(prevJ!==null){
-      L = prevJ + prevK + prevN;
+    } else if(prevN!==null){
+      L = prevN;
     } else {
       L = 0;
     }
-    const calculatedM = -K - L; // contribution needed (negative = surplus)
+    const calculatedM = Math.max(0, totalExpense - L); // what owners need to deposit
     const hasOverride = m.manualContribution!==null && m.manualContribution!==undefined;
     const M = hasOverride ? Number(m.manualContribution)||0 : calculatedM;
-    const N = L + M;
+    const N = L + M + totalIncome - totalExpense; // true ending balance
     const rangerTotal = (m.ranger||[]).reduce((s,r)=>s+(Number(r.amount)||0),0);
     out.push({
-      ...m, totalIncome, baseline, adjTotal, totalExpense, K, L, M, N, rangerTotal,
+      ...m, totalIncome, baseline, adjTotal, totalExpense, L, M, N, rangerTotal,
       calculatedM, hasContributionOverride: hasOverride
     });
-    prevJ=totalIncome; prevK=K; prevN=N;
+    prevN = N;
   });
   return out;
 }
@@ -704,7 +704,6 @@ function LedgerView({yr, updateYear, openMonths, setOpenMonths, showToast}){
           <tbody>
             {computed.map((m,idx)=>{
               const isOpen = openMonths.has(m.id);
-              const contribIsSurplus = m.M < 0;
               const toggle = ()=>setOpenMonths(prev=>{
                 const next = new Set(prev);
                 if(next.has(m.id)) next.delete(m.id); else next.add(m.id);
@@ -726,10 +725,10 @@ function LedgerView({yr, updateYear, openMonths, setOpenMonths, showToast}){
                     <td className="num-cell">{fmtShort(m.L)}</td>
                     <td className="num-cell">{fmtShort(m.totalIncome)}</td>
                     <td className="num-cell muted">{fmtShort(m.totalExpense)}</td>
-                    <td className={"num-cell "+(contribIsSurplus?"pos":(m.M>0?"neg":""))}>
-                      {contribIsSurplus ? `(${fmtShort(Math.abs(m.M))})` : (m.M>0.01 ? fmtShort(m.M) : "—")}
+                    <td className={"num-cell "+(m.M>0.01?"neg":"")}>
+                      {m.M>0.01 ? fmtShort(m.M) : "—"}
                     </td>
-                    <td className="num-cell">{fmtShort(m.N)}</td>
+                    <td className={"num-cell "+(m.N>m.L+0.01?"pos":m.N<m.L-0.01?"neg":"")}>{fmtShort(m.N)}</td>
                     <td>
                       <StatusBadge status={m.contributionStatus} needsContribution={m.M>0.01} compact />
                     </td>
@@ -932,27 +931,24 @@ function MonthDetail({m, monthIdx, ownerSplit, onAddBooking, onUpdateBooking, on
 
         <div className="calc-strip">
           Starting balance <span className="eq">{fmt(m.L)}</span><br/>
-          − Total expense <span className="eq">{fmt(m.totalExpense)}</span><br/>
-          = Calculated {m.calculatedM>=0 ? "contribution required" : "surplus"} <span className="eq">{fmt(Math.abs(m.calculatedM))}</span><br/>
-          {m.hasContributionOverride && (
-            <React.Fragment>
-              <span className="muted">Overridden to</span> <span className="eq">{fmt(m.M)}</span><br/>
-            </React.Fragment>
-          )}
-          Ending balance (start + contribution) <span className="eq">{fmt(m.N)}</span><br/>
-          <span className="muted">→ becomes next month's rolled-forward starting balance once this month's income posts</span>
+          + Contribution <span className="eq">{fmt(m.M)}</span>
+          {m.hasContributionOverride && <span className="muted"> (overridden)</span>}<br/>
+          + Income <span className="eq">{fmt(m.totalIncome)}</span><br/>
+          − Expenses <span className="eq">{fmt(m.totalExpense)}</span><br/>
+          = Ending balance <span className="eq">{fmt(m.N)}</span><br/>
+          <span className="muted">→ rolls forward as next month's starting balance</span>
         </div>
 
         {m.M > 0.01 && (
           <div className="calc-strip" style={{marginTop:10}}>
-            <b>Split due at start of {m.name}:</b><br/>
+            <b>Contribution due at start of {m.name}:</b><br/>
             Ladd ({ownerSplit.ladd}%) <span className="eq">{fmt(laddShare)}</span><br/>
             Dane ({ownerSplit.dane}%) <span className="eq">{fmt(daneShare)}</span>
           </div>
         )}
-        {m.M < -0.01 && (
+        {m.M < 0.01 && m.N > m.L + 0.01 && (
           <div className="calc-strip" style={{marginTop:10}}>
-            No contribution needed — <b>{fmt(Math.abs(m.M))}</b> surplus carries into next month.
+            No contribution needed — income covers expenses with <b>{fmt(m.N - m.L)}</b> net gain this month.
           </div>
         )}
       </div>
@@ -1068,13 +1064,12 @@ function ContributionsView({yr, updateYear}){
             const due = m.M;
             const ladd = due * (yr.ownerSplit.ladd/100);
             const dane = due * (yr.ownerSplit.dane/100);
-            if(due>0){ laddTotal+=ladd; daneTotal+=dane; totalDue+=due; }
-            const isSurplus = due < -0.01;
+            if(due>0.01){ laddTotal+=ladd; daneTotal+=dane; totalDue+=due; }
             return (
               <tr key={m.id}>
                 <td>{m.name} 1</td>
-                <td className={"num-cell"+(isSurplus?" pos":(due>0.01?" neg":""))}>
-                  {isSurplus ? `(${fmt(Math.abs(due))})` : fmt(due)}
+                <td className={"num-cell"+(due>0.01?" neg":"")}>
+                  {due>0.01 ? fmt(due) : "—"}
                 </td>
                 <td className="num-cell">{due>0.01?fmt(ladd):"—"}</td>
                 <td className="num-cell">{due>0.01?fmt(dane):"—"}</td>
